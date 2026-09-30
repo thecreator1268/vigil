@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   {
     ignores: [
-      '**/dist/**', '**/node_modules/**', '**/coverage/**', '**/generated/**',
+      '**/dist/**', '**/dist-*/**', '**/node_modules/**', '**/coverage/**', '**/generated/**',
       'apps/pwa/dev-dist/**', 'apps/pwa/test-results/**', 'apps/pwa/playwright-report/**',
     ],
   },
