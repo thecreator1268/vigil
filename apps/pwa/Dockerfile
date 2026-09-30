@@ -23,7 +23,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 
 # ---- runtime (distroless, non-root) ----
 # The static server has zero npm dependencies: only dist/ and server/ ship.
-FROM gcr.io/distroless/nodejs22-debian12 AS runtime
+FROM gcr.io/distroless/nodejs22-debian13 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=5173
 COPY --from=build /app/apps/pwa/package.json ./package.json

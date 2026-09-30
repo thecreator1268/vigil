@@ -26,7 +26,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # ---- runtime (distroless, non-root) ----
 # No shell, no package manager: nothing for an attacker to spawn or install.
 # Dependencies are pure JS, so the musl→glibc hop from alpine is safe.
-FROM gcr.io/distroless/nodejs22-debian12 AS runtime
+FROM gcr.io/distroless/nodejs22-debian13 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000
 COPY --from=build /out/package.json ./package.json
