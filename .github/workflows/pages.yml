@@ -1,0 +1,66 @@
+name: Prototype (GitHub Pages)
+
+# Publishes a static, clickable prototype of the PWA at
+# https://<owner>.github.io/<repo>/ . It runs the real app with an in-browser
+# demo backend (apps/pwa/src/demo) and sample data — no services, no real data.
+# One-time setup: Settings → Pages → Source: "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/pwa/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:packages
+
+      - name: Demo backend matches the OpenAPI contract
+        run: pnpm --filter @vigil/pwa exec vitest run src/demo
+
+      - name: Build the prototype
+        env:
+          VITE_DEMO_MODE: 'true'
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: |
+          pnpm --filter @vigil/pwa exec vite build --outDir dist-pages
+          # Pages has no SPA rewrites: serve the app shell for deep links too.
+          cp apps/pwa/dist-pages/index.html apps/pwa/dist-pages/404.html
+          touch apps/pwa/dist-pages/.nojekyll
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/pwa/dist-pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

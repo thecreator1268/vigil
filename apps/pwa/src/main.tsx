@@ -1,3 +1,4 @@
+import './demo/install'; // must stay first: see demo/install.ts
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';

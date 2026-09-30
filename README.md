@@ -26,6 +26,15 @@ PW_CHANNEL=chrome pnpm e2e                                        # Playwright: 
 pnpm lint && pnpm typecheck && pnpm test                          # what CI runs on every PR
 ```
 
+## Clickable prototype (no install)
+
+**https://thecreator1268.github.io/vigil/** is the real PWA built in demo mode. It has an in-browser backend and sample data, so no services are running and no real data is involved. Use the **View as Person / Counselor / Admin** strip at the top to switch roles. To try it out, check in as the person and write something like *"I don't want to live anymore"*, then switch to Counselor to see the crisis alert.
+
+- The demo backend (`apps/pwa/src/demo`) uses the real scoring engine and crisis matcher. It enforces the same roles, consent rules and k-anonymity as the services, and a test validates each response against `openapi.yaml`. It is only compiled in when `VITE_DEMO_MODE=true`; the normal build contains none of it.
+- State lives in memory, so a reload starts again from the same sample data. Check-ins stay on the device (IndexedDB), as in the real app.
+- It is deployed by `.github/workflows/pages.yml` on every push to `main`. One-time setup: **Settings → Pages → Source: GitHub Actions**.
+- To run it locally: `VITE_DEMO_MODE=true pnpm --filter @vigil/pwa dev`.
+
 ## Layout
 
 ```

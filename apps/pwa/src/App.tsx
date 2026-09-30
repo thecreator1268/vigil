@@ -75,7 +75,7 @@ export function App() {
 
   if (!hydrated) return null;
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <Routes>
         {/* Onboarding: crisis bar still visible (Frame always renders it). */}
         <Route element={<Frame />}>

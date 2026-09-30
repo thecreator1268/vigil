@@ -18,3 +18,7 @@ apps/pwa/blob-report/
 
 # generated at build time
 apps/pwa/dev-dist/
+
+# static prototype builds
+apps/pwa/dist-demo/
+apps/pwa/dist-pages/

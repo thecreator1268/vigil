@@ -4,8 +4,11 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const GATEWAY = process.env.VITE_DEV_GATEWAY ?? 'https://localhost:8080';
+// Sub-path hosting (e.g. GitHub Pages serves the prototype at /vigil/). Default: root.
+const BASE = process.env.VITE_BASE ?? '/';
 
 export default defineConfig({
+  base: BASE,
   plugins: [
     react(),
     tailwindcss(),
@@ -20,19 +23,20 @@ export default defineConfig({
         theme_color: '#0f1f3d',
         background_color: '#fbfaf7',
         display: 'standalone',
-        start_url: '/',
+        start_url: '.',
+        scope: '.',
         lang: 'en',
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
         // Workbox caches the SHELL only. Data sync is the app's own Dexie-backed
         // Sync Queue (src/sync) — deliberately separate from Workbox.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,json}'],
-        navigateFallback: '/index.html',
+        navigateFallback: `${BASE}index.html`,
         navigateFallbackDenylist: [/^\/v1\//, /^\/auth\//],
         runtimeCaching: [
           {

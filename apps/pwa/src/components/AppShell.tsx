@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FiEdit3, FiHome, FiLifeBuoy, FiList, FiShield, FiWifiOff } from 'react-icons/fi';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { DemoBar } from '../demo/DemoBar';
 import { CrisisBar } from '../features/crisis/CrisisBar';
 import { setLanguage } from '../i18n';
 import { useStore } from '../store';
@@ -86,6 +87,7 @@ export function Frame({ nav, wide = false, title }: { nav?: ReactNode; wide?: bo
   return (
     <div className="flex min-h-dvh flex-col">
       <CrisisBar />
+      <DemoBar />
       <header className="border-b border-ice-100 bg-white">
         <div className={`mx-auto flex items-center gap-3 px-4 py-3 ${wide ? 'max-w-6xl' : 'max-w-3xl'}`}>
           <span className="text-lg font-bold tracking-wide text-navy-900">{t('common.appName')}</span>

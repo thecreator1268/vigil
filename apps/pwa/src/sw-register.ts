@@ -6,7 +6,7 @@
 export function registerServiceWorker(): void {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return;
   void import('workbox-window').then(({ Workbox }) => {
-    const wb = new Workbox('/sw.js');
+    const wb = new Workbox(`${import.meta.env.BASE_URL}sw.js`);
     void wb.register();
   });
 }
