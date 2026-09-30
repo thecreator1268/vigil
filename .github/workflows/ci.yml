@@ -142,7 +142,9 @@ jobs:
           CI: 'true'
       - name: Service logs
         if: failure()
-        run: docker compose logs --no-color > compose-logs.txt
+        run: |
+          docker compose ps --all
+          docker compose logs --no-color | tee compose-logs.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:

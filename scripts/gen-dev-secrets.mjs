@@ -2,7 +2,7 @@
 // Generates local-development secrets into ./secrets (git-ignored).
 // Production secrets come from the cluster's secret store — never from here.
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import selfsigned from 'selfsigned';
@@ -10,15 +10,22 @@ import selfsigned from 'selfsigned';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'secrets');
 const force = process.argv.includes('--force');
+// Access control lives on the directory (0700: no other host user can reach
+// the files). The files themselves are 0644 because Compose bind-mounts them
+// with host permissions and the containers run as distroless `nonroot`
+// (uid 65532), which on Linux could not read a 0600 file owned by the dev.
 mkdirSync(dir, { recursive: true });
+chmodSync(dir, 0o700);
 
 function write(name, contents) {
   const path = join(dir, name);
   if (existsSync(path) && !force) {
+    chmodSync(path, 0o644);
     console.log(`  keep   secrets/${name}`);
     return;
   }
-  writeFileSync(path, contents, { mode: 0o600 });
+  writeFileSync(path, contents);
+  chmodSync(path, 0o644);
   console.log(`  wrote  secrets/${name}`);
 }
 
