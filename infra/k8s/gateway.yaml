@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels: { app: gateway }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: gateway } }
+  template:
+    metadata:
+      labels: { app: gateway }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: gateway
+          image: vigil/gateway
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: PORT, value: "8080" }
+            - { name: OTEL_SERVICE_NAME, value: gateway }
+            - { name: JWT_ISSUER, value: "https://idp.socialjustice.example.gov.in" }
+            - { name: JWT_AUDIENCE, value: vigil-api }
+            - { name: TLS_CERT_PATH, value: /run/secrets/tls_cert }
+            - { name: TLS_KEY_PATH, value: /run/secrets/tls_key }
+            - { name: RATE_LIMIT_MAX, value: "120" }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom: { configMapKeyRef: { name: vigil-observability, key: otlpEndpoint, optional: true } }
+            - name: SENTRY_DSN
+              valueFrom: { secretKeyRef: { name: vigil-observability, key: sentryDsn, optional: true } }
+          volumeMounts:
+            - { name: secrets, mountPath: /run/secrets, readOnly: true }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8080, scheme: HTTPS }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080, scheme: HTTPS }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: secrets
+          projected:
+            sources:
+              - secret: { name: vigil-jwt, items: [{ key: public.pem, path: jwt_public_key }] }
+              - secret: { name: vigil-internal, items: [{ key: token, path: internal_token }] }
+              - secret: { name: vigil-gateway-tls, items: [{ key: tls.crt, path: tls_cert }, { key: tls.key, path: tls_key }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: gateway, labels: { app: gateway } }
+spec:
+  selector: { app: gateway }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: gateway }
+spec:
+  minAvailable: 1
+  selector: { matchLabels: { app: gateway } }

@@ -1,0 +1,23 @@
+# Public entry: the PWA origin. The PWA server proxies /v1 and /auth to the
+# gateway over in-cluster TLS 1.3, so the browser only ever sees one origin.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vigil
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.3"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "128k"
+    nginx.ingress.kubernetes.io/limit-rps: "20"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [vigil.example.gov.in]
+      secretName: vigil-public-tls
+  rules:
+    - host: vigil.example.gov.in
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: pwa, port: { number: 80 } } }

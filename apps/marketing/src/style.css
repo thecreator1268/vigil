@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@import "../../../packages/design-system/src/tokens.css";
+
+body { font-family: var(--font-sans); }
+
+.card { @apply rounded-2xl border border-ice-300 bg-paper p-6; }
+.card h3 { @apply text-lg font-semibold text-navy-900; }
+.card p { @apply mt-2 text-ink-muted; }
+
+.step { @apply grid grid-cols-[3rem_1fr] items-start gap-5; }
+.step .num { @apply flex h-12 w-12 items-center justify-center rounded-full bg-ice-100 text-lg font-semibold text-navy-900; }
+.step h3 { @apply text-xl font-semibold text-navy-900; }
+.step p { @apply mt-2 max-w-2xl text-ink-muted; }

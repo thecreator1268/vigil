@@ -1,0 +1,701 @@
+openapi: 3.1.0
+info:
+  title: VIGIL API
+  version: 1.0.0
+  summary: Distress-monitoring API for survivors of atrocities (SIH26094).
+  description: |
+    Source of truth for the frontend ↔ gateway ↔ service contract. TypeScript
+    types are generated from this file (`pnpm contract:generate`); do not
+    hand-write them.
+
+    **Auth.** Every operation requires a signed RS256 JWT whose `scope` claim is
+    `victim`, `counselor` or `admin`. `x-vigil-scopes` on each operation is read
+    by the gateway at boot and enforced there — `/v1/admin/*` is rejected at the
+    gateway for anything but `admin`. `victim` tokens may only touch their own
+    `victimId` (the token's `sub`); services enforce ownership.
+
+    **Dignity rules baked into the contract.** `Alert.raw_score` is always
+    `null`. Free text is never returned by list endpoints unless the victim's
+    consent scope `share-free-text` was granted, or it arrived on the crisis
+    fast-path.
+servers:
+  - url: https://localhost:8080
+    description: Local gateway (docker compose)
+security:
+  - bearerAuth: []
+tags:
+  - name: checkins
+  - name: trend
+  - name: alerts
+  - name: reminders
+  - name: consent
+  - name: cases
+  - name: admin
+
+paths:
+  /v1/checkins:
+    post:
+      tags: [checkins]
+      operationId: submitCheckIn
+      x-vigil-service: checkin-service
+      x-vigil-scopes: [victim, counselor]
+      summary: Sync a check-in that is already durable on the device.
+      description: |
+        Idempotent on `id` — re-sending an already-synced check-in returns 202
+        with the stored `syncState`. Check-ins are append-only and immutable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckInSubmission' }
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckInAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/checkins/{id}/free-text:
+    delete:
+      tags: [checkins]
+      operationId: deleteCheckInFreeText
+      x-vigil-service: checkin-service
+      x-vigil-scopes: [victim]
+      summary: The person erases the words they wrote in a check-in (empowerment).
+      description: |
+        Irreversibly removes the stored free text; the structured answers and
+        scores remain. Idempotent. Only the owning person may call this.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Erased (or there was nothing to erase)
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/victims/{id}/checkins:
+    get:
+      tags: [checkins]
+      operationId: listVictimCheckIns
+      x-vigil-service: checkin-service
+      x-vigil-scopes: [counselor]
+      summary: What the person told us, most recent first (counselor view).
+      parameters:
+        - $ref: '#/components/parameters/VictimIdPath'
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checkIns]
+                additionalProperties: false
+                properties:
+                  checkIns:
+                    type: array
+                    items: { $ref: '#/components/schemas/CheckInSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/victims/{id}/trend:
+    get:
+      tags: [trend]
+      operationId: getVictimTrend
+      x-vigil-service: distress-trend-service
+      x-vigil-scopes: [counselor]
+      parameters:
+        - $ref: '#/components/parameters/VictimIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrendResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/scoring-config:
+    get:
+      tags: [trend]
+      operationId: getScoringConfig
+      x-vigil-service: distress-trend-service
+      x-vigil-scopes: [victim, counselor, admin]
+      summary: Current versioned scoring config (weights + thresholds).
+      description: Devices cache this and stamp every check-in with `configVersion`.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScoringConfig' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/alerts:
+    get:
+      tags: [alerts]
+      operationId: listAlerts
+      x-vigil-service: alert-service
+      x-vigil-scopes: [counselor]
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/AlertStatus' }
+      responses:
+        '200':
+          description: Severity-sorted (urgent first), newest first within severity.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [alerts]
+                additionalProperties: false
+                properties:
+                  alerts:
+                    type: array
+                    items: { $ref: '#/components/schemas/Alert' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/alerts/{id}/acknowledge:
+    post:
+      tags: [alerts]
+      operationId: acknowledgeAlert
+      x-vigil-service: alert-service
+      x-vigil-scopes: [counselor]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK (idempotent)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [alert]
+                additionalProperties: false
+                properties:
+                  alert: { $ref: '#/components/schemas/Alert' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/reminders:
+    get:
+      tags: [reminders]
+      operationId: listReminders
+      x-vigil-service: reminder-service
+      x-vigil-scopes: [victim, counselor]
+      parameters:
+        - name: victimId
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/VictimId' }
+      responses:
+        '200':
+          description: OK, ordered by dueAt ascending
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reminders]
+                additionalProperties: false
+                properties:
+                  reminders:
+                    type: array
+                    items: { $ref: '#/components/schemas/Reminder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [reminders]
+      operationId: upsertReminder
+      x-vigil-service: reminder-service
+      x-vigil-scopes: [counselor]
+      summary: Create or update a reminder (server-authoritative updatedAt, last-write-wins).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReminderInput' }
+      responses:
+        '201':
+          description: Created or updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reminder]
+                additionalProperties: false
+                properties:
+                  reminder: { $ref: '#/components/schemas/Reminder' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/consent:
+    post:
+      tags: [consent]
+      operationId: recordConsent
+      x-vigil-service: checkin-service
+      x-vigil-scopes: [victim]
+      summary: Append an entry to the versioned consent ledger.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConsentInput' }
+      responses:
+        '201':
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [record]
+                additionalProperties: false
+                properties:
+                  record: { $ref: '#/components/schemas/ConsentRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    get:
+      tags: [consent]
+      operationId: listConsent
+      x-vigil-service: checkin-service
+      x-vigil-scopes: [victim, counselor]
+      summary: Current effective consent per scope (latest ledger entry wins).
+      parameters:
+        - name: victimId
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/VictimId' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [records]
+                additionalProperties: false
+                properties:
+                  records:
+                    type: array
+                    items: { $ref: '#/components/schemas/ConsentRecord' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/victims/{id}/case-links:
+    get:
+      tags: [cases]
+      operationId: listCaseLinks
+      x-vigil-service: case-integration-service
+      x-vigil-scopes: [counselor]
+      parameters:
+        - $ref: '#/components/parameters/VictimIdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [caseLinks]
+                additionalProperties: false
+                properties:
+                  caseLinks:
+                    type: array
+                    items: { $ref: '#/components/schemas/CaseLink' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /v1/admin/rollups:
+    get:
+      tags: [admin]
+      operationId: getAdminRollups
+      x-vigil-service: distress-trend-service
+      x-vigil-scopes: [admin]
+      summary: Anonymized regional aggregate (k-anonymity suppressed below cohort 5).
+      parameters:
+        - name: region
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [anonymizedAggregate]
+                additionalProperties: false
+                properties:
+                  anonymizedAggregate: { $ref: '#/components/schemas/AnonymizedAggregate' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    VictimIdPath:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/VictimId' }
+
+  responses:
+    BadRequest:
+      description: Request failed validation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Token scope not permitted for this operation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      additionalProperties: false
+      properties:
+        error: { type: string }
+        message: { type: string }
+
+    VictimId:
+      type: string
+      description: Pseudonymous identifier. Never a name, phone number or case number.
+      pattern: '^v_[A-Za-z0-9_-]{6,64}$'
+
+    Timestamp:
+      type: integer
+      description: Unix epoch milliseconds
+      minimum: 0
+
+    Severity:
+      type: string
+      enum: [urgent, elevated]
+
+    AlertStatus:
+      type: string
+      enum: [open, acknowledged, resolved]
+
+    SignalName:
+      type: string
+      enum: [self_report, sentiment, engagement, voice, crisis_scan]
+
+    Channel:
+      type: string
+      enum: [app, ivrs, sms]
+
+    SignalTerms:
+      type: object
+      description: |
+        Wellbeing-oriented signal values in [-1, 1] (0 = neutral) exactly as
+        they entered the composite formula, so the trend service can recompute.
+      required: [selfReport, sentiment, engagement, voice]
+      additionalProperties: false
+      properties:
+        selfReport: { type: [number, 'null'], minimum: -1, maximum: 1 }
+        sentiment: { type: [number, 'null'], minimum: -1, maximum: 1 }
+        engagement: { type: [number, 'null'], minimum: -1, maximum: 1 }
+        voice: { type: [number, 'null'], minimum: -1, maximum: 1 }
+
+    CrisisMatch:
+      type: object
+      required: [listVersion, matchedPhraseIds, categories]
+      additionalProperties: false
+      properties:
+        listVersion: { type: string }
+        matchedPhraseIds:
+          type: array
+          items: { type: string }
+        categories:
+          type: array
+          items: { type: string, enum: [self_harm, threat_to_safety] }
+
+    CheckInSubmission:
+      type: object
+      required: [id, victimId, createdAt, selfReport, crisisFlag, compositeScore, signalTerms, configVersion, channel, fastPath]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        victimId: { $ref: '#/components/schemas/VictimId' }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        selfReport:
+          type: object
+          description: questionId → Likert answer 0..4. Skipped questions are simply absent.
+          additionalProperties: { type: integer, minimum: 0, maximum: 4 }
+          maxProperties: 10
+        freeText:
+          type: string
+          maxLength: 4000
+          description: Only present with consent scope `share-free-text`, or on the crisis fast-path.
+        sentimentScore: { type: [number, 'null'], minimum: -1, maximum: 1 }
+        voiceFeatures:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [pitchVar, rms]
+              additionalProperties: false
+              properties:
+                pitchVar: { type: number, minimum: 0 }
+                rms: { type: number, minimum: 0 }
+        crisisFlag: { type: boolean }
+        crisis:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/CrisisMatch'
+        compositeScore: { type: number, minimum: -1, maximum: 1 }
+        signalTerms: { $ref: '#/components/schemas/SignalTerms' }
+        responseLatencyMs: { type: [integer, 'null'], minimum: 0 }
+        configVersion: { type: integer, minimum: 1 }
+        channel: { $ref: '#/components/schemas/Channel' }
+        fastPath: { type: boolean, description: True when sent by the crisis fast-path queue. }
+        region: { type: string, maxLength: 64 }
+
+    CheckInAccepted:
+      type: object
+      required: [id, syncState]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        syncState: { type: string, enum: [synced, crisis-synced] }
+
+    CheckInSummary:
+      type: object
+      required: [id, createdAt, selfReport, crisisFlag, channel]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        selfReport:
+          type: object
+          additionalProperties: { type: integer, minimum: 0, maximum: 4 }
+        sharedText:
+          type: [string, 'null']
+          description: Decrypted free text, only when the person consented to share it or it arrived on the crisis fast-path.
+        crisisFlag: { type: boolean }
+        channel: { $ref: '#/components/schemas/Channel' }
+
+    Baseline:
+      type: object
+      required: [mean, stddev, windowSize, sufficient]
+      additionalProperties: false
+      properties:
+        mean: { type: number }
+        stddev: { type: number, minimum: 0 }
+        windowSize: { type: integer, minimum: 0 }
+        sufficient:
+          type: boolean
+          description: False until the minimum number of check-ins exists; no trend alert can fire before then.
+
+    TrendPoint:
+      type: object
+      required: [at, compositeScore]
+      additionalProperties: false
+      properties:
+        at: { $ref: '#/components/schemas/Timestamp' }
+        compositeScore: { type: number, minimum: -1, maximum: 1 }
+
+    TrendResponse:
+      type: object
+      required: [points, baseline]
+      additionalProperties: false
+      properties:
+        points:
+          type: array
+          items: { $ref: '#/components/schemas/TrendPoint' }
+        baseline:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Baseline'
+
+    ScoringConfig:
+      type: object
+      required: [version, weights, zThreshold, urgentZThreshold, slopeThreshold, baselineWindow, minBaseline, slopeWindow, sigmaFloor, involvementThreshold]
+      additionalProperties: false
+      properties:
+        version: { type: integer, minimum: 1 }
+        weights:
+          type: object
+          required: [selfReport, sentiment, engagement, voice]
+          additionalProperties: false
+          properties:
+            selfReport: { type: number, minimum: 0, maximum: 1 }
+            sentiment: { type: number, minimum: 0, maximum: 1 }
+            engagement: { type: number, minimum: 0, maximum: 1 }
+            voice: { type: number, minimum: 0, maximum: 1 }
+        zThreshold: { type: number, maximum: 0, description: 'T — distressed direction is negative' }
+        urgentZThreshold: { type: number, maximum: 0 }
+        slopeThreshold: { type: number, exclusiveMinimum: 0, description: Magnitude; a slope below -slopeThreshold is distressed. }
+        baselineWindow: { type: integer, minimum: 2 }
+        minBaseline: { type: integer, minimum: 2 }
+        slopeWindow: { type: integer, minimum: 2 }
+        sigmaFloor: { type: number, exclusiveMinimum: 0 }
+        involvementThreshold: { type: number, exclusiveMinimum: 0 }
+
+    Alert:
+      type: object
+      required: [id, victimId, severity, signals_involved, reason_text, raw_score, status, source, configVersion, createdAt, acknowledgedAt, acknowledgedBy]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        victimId: { $ref: '#/components/schemas/VictimId' }
+        severity: { $ref: '#/components/schemas/Severity' }
+        signals_involved:
+          type: array
+          items: { $ref: '#/components/schemas/SignalName' }
+        reason_text: { type: string, minLength: 1 }
+        raw_score:
+          type: 'null'
+          description: Never exposed. Always null by contract.
+        status: { $ref: '#/components/schemas/AlertStatus' }
+        source: { type: string, enum: [trend, crisis] }
+        configVersion: { type: integer, minimum: 1 }
+        createdAt: { $ref: '#/components/schemas/Timestamp' }
+        acknowledgedAt:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Timestamp'
+        acknowledgedBy: { type: [string, 'null'] }
+
+    ReminderType:
+      type: string
+      enum: [hearing, compensation, checkin]
+
+    ReminderInput:
+      type: object
+      required: [id, victimId, dueAt, type, note]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        victimId: { $ref: '#/components/schemas/VictimId' }
+        dueAt: { $ref: '#/components/schemas/Timestamp' }
+        type: { $ref: '#/components/schemas/ReminderType' }
+        note: { type: string, maxLength: 500 }
+
+    Reminder:
+      type: object
+      required: [id, victimId, dueAt, type, note, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        victimId: { $ref: '#/components/schemas/VictimId' }
+        dueAt: { $ref: '#/components/schemas/Timestamp' }
+        type: { $ref: '#/components/schemas/ReminderType' }
+        note: { type: string, maxLength: 500 }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    ConsentScope:
+      type: string
+      enum: [share-free-text, share-voice-features, voice-transcription, counselor-contact, case-linking]
+
+    ConsentInput:
+      type: object
+      required: [id, victimId, scope, granted, at]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        victimId: { $ref: '#/components/schemas/VictimId' }
+        scope: { $ref: '#/components/schemas/ConsentScope' }
+        granted: { type: boolean }
+        at: { $ref: '#/components/schemas/Timestamp' }
+
+    ConsentRecord:
+      type: object
+      required: [id, victimId, scope, granted, at, updatedAt, ledgerVersion]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        victimId: { $ref: '#/components/schemas/VictimId' }
+        scope: { $ref: '#/components/schemas/ConsentScope' }
+        granted: { type: boolean }
+        at: { $ref: '#/components/schemas/Timestamp' }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+        ledgerVersion: { type: integer, minimum: 1, description: Monotonic per victim. }
+
+    CaseLink:
+      type: object
+      required: [id, victimId, externalSystem, externalCaseRef, stage, nextHearingAt, compensationStatus, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        victimId: { $ref: '#/components/schemas/VictimId' }
+        externalSystem: { type: string }
+        externalCaseRef: { type: string }
+        stage: { type: string, enum: [fir_registered, investigation, chargesheet, trial, disposed] }
+        nextHearingAt:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Timestamp'
+        compensationStatus: { type: string, enum: [not_applied, applied, sanctioned, disbursed] }
+        updatedAt: { $ref: '#/components/schemas/Timestamp' }
+
+    AnonymizedAggregate:
+      type: object
+      required: [region, periodDays, suppressed, cohortSize, checkInCount, alerts, weeklyCheckIns]
+      additionalProperties: false
+      properties:
+        region: { type: string }
+        periodDays: { type: integer, minimum: 1 }
+        suppressed:
+          type: boolean
+          description: True when the cohort is below the k-anonymity threshold; all counts are then null.
+        cohortSize: { type: [integer, 'null'], minimum: 0 }
+        checkInCount: { type: [integer, 'null'], minimum: 0 }
+        alerts:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [urgent, elevated, acknowledgedWithin24hPct]
+              additionalProperties: false
+              properties:
+                urgent: { type: integer, minimum: 0 }
+                elevated: { type: integer, minimum: 0 }
+                acknowledgedWithin24hPct: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        weeklyCheckIns:
+          type: array
+          items:
+            type: object
+            required: [weekStart, count]
+            additionalProperties: false
+            properties:
+              weekStart: { $ref: '#/components/schemas/Timestamp' }
+              count: { type: integer, minimum: 0 }

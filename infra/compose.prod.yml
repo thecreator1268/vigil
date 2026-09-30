@@ -1,0 +1,87 @@
+# Production mode for Docker Compose (single-host deployments). SAME images
+# as dev — only orchestration changes:
+#
+#   docker compose -f compose.yaml -f infra/compose.prod.yml --profile production up -d
+#
+#  - resource limits + replica counts on every service
+#  - read-only root filesystems, all capabilities dropped, no-new-privileges
+#  - no host ports on the gateway/PWA; Caddy (TLS) is the only entry point
+#  - the dev-idp is not started and the gateway no longer points at it:
+#    configure JWT_ISSUER / JWT_AUDIENCE / jwt_public_key for your real IdP.
+
+x-hardened: &hardened
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: always
+
+services:
+  gateway:
+    <<: *hardened
+    ports: !reset []
+    depends_on: !override
+      checkin-service: { condition: service_healthy }
+      distress-trend-service: { condition: service_healthy }
+      alert-service: { condition: service_healthy }
+      reminder-service: { condition: service_healthy }
+      case-integration-service: { condition: service_healthy }
+    environment:
+      DEV_IDP_URL: ""
+      JWT_ISSUER: ${JWT_ISSUER:?set JWT_ISSUER to your OIDC issuer}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-vigil-api}
+      NODE_ENV: production
+    deploy:
+      replicas: 2
+      resources:
+        limits: { cpus: "1.0", memory: 256M }
+        reservations: { cpus: "0.1", memory: 128M }
+
+  checkin-service:
+    <<: *hardened
+    deploy: { replicas: 2, resources: { limits: { cpus: "1.0", memory: 256M } } }
+  distress-trend-service:
+    <<: *hardened
+    deploy: { replicas: 2, resources: { limits: { cpus: "1.0", memory: 256M } } }
+  alert-service:
+    <<: *hardened
+    deploy: { replicas: 2, resources: { limits: { cpus: "0.5", memory: 256M } } }
+  reminder-service:
+    <<: *hardened
+    deploy: { replicas: 1, resources: { limits: { cpus: "0.5", memory: 192M } } }
+  case-integration-service:
+    <<: *hardened
+    environment:
+      CASE_SYNC_MOCK: "false"
+    deploy: { replicas: 1, resources: { limits: { cpus: "0.5", memory: 192M } } }
+
+  pwa:
+    <<: *hardened
+    ports: !reset []
+    deploy: { replicas: 2, resources: { limits: { cpus: "0.5", memory: 128M } } }
+
+  postgres:
+    deploy: { resources: { limits: { cpus: "2.0", memory: 1G } } }
+
+  # Never in production.
+  dev-idp:
+    profiles: [dev-only]
+
+  ingress:
+    image: caddy:2.10-alpine
+    profiles: [production]
+    restart: always
+    ports: ["80:80", "443:443"]
+    networks: [edge]
+    depends_on:
+      pwa: { condition: service_healthy }
+    environment:
+      VIGIL_DOMAIN: ${VIGIL_DOMAIN:-localhost}
+    volumes:
+      # override-file paths resolve against the BASE compose file (repo root)
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    deploy: { resources: { limits: { cpus: "0.5", memory: 128M } } }
+
+volumes:
+  caddy_data:

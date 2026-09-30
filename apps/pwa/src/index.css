@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "@vigil/design-system/tokens.css";
+
+@source "../../../packages/design-system/src";
+
+html {
+  background: var(--color-paper);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  line-height: 1.55;
+}
+
+/* Explicitly avoided: skeleton shimmer, parallax, scroll-jacking. */

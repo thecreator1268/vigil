@@ -1,0 +1,22 @@
+{
+  "name": "@vigil/marketing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Public explainer page. The ONLY place GSAP/ScrollTrigger is used — never inside the working app.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5174",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 5174",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "gsap": "^3.15.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.1"
+  }
+}

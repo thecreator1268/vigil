@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - services/*
+  - packages/*
+
+# `pnpm deploy` copies workspace packages into each service's runtime
+# node_modules (used by the multi-stage Dockerfiles).
+injectWorkspacePackages: true
+
+onlyBuiltDependencies:
+  - esbuild

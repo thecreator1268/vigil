@@ -1,0 +1,63 @@
+/*
+ * VIGIL design tokens for Tailwind v4 (@theme) + motion custom properties
+ * shared with the View Transitions API. Import after `@import "tailwindcss"`.
+ */
+@theme {
+  --color-navy-900: #0f1f3d;
+  --color-navy-700: #1d3461;
+  --color-navy-500: #34568b;
+  --color-ice-50: #f3f9fc;
+  --color-ice-100: #e6f2f9;
+  --color-ice-300: #bcdcee;
+  --color-ice-500: #5ea9cf;
+  --color-paper: #fbfaf7;
+  --color-ink: #1b2433;
+  --color-ink-muted: #4a5568;
+  --color-sage-700: #2f6a4d;
+  --color-sage-100: #e3f1e9;
+  --color-urgent-700: #9f2a1f;
+  --color-urgent-100: #fbe9e6;
+  --color-elevated-700: #7a4b00;
+  --color-elevated-100: #fff1d6;
+
+  --font-sans: "Noto Sans", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root {
+  --motion-instant: 120ms;
+  --motion-quick: 220ms;
+  --motion-standard: 320ms;
+  --motion-deliberate: 500ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Collapse, don't disable: the state change must still register. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-instant: 10ms;
+    --motion-quick: 10ms;
+    --motion-standard: 10ms;
+    --motion-deliberate: 10ms;
+  }
+}
+
+/* ---- View Transitions (route-level + shared element) ---- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--motion-standard);
+  animation-timing-function: var(--ease-standard);
+}
+
+.alert-card-thumb {
+  view-transition-name: alert-detail;
+}
+::view-transition-group(alert-detail) {
+  animation-duration: var(--motion-standard);
+  animation-timing-function: var(--ease-standard);
+}
+
+/* Visible focus ring everywhere (WCAG 2.4.7). */
+:focus-visible {
+  outline: 3px solid var(--color-ice-500);
+  outline-offset: 2px;
+}

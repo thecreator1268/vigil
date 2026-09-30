@@ -1,0 +1,31 @@
+{
+  "name": "@vigil/dev-idp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DEVELOPMENT-ONLY token issuer standing in for the OIDC provider. Never deployed to production.",
+  "main": "dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch --onSuccess \"node dist/main.js\"",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@vigil/service-kit": "workspace:*",
+    "fastify": "^5.12.5",
+    "zod": "^4.6.5",
+    "jose": "^6.2.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.0.2",
+    "tsup": "^8.5.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

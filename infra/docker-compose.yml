@@ -1,0 +1,178 @@
+# VIGIL — local development stack. One command from the repo root:
+#
+#   pnpm secrets:dev          # once: generates ./secrets (git-ignored)
+#   docker compose up --build
+#
+# PWA:      http://localhost:5173
+# Gateway:  https://localhost:8080  (TLS 1.3, self-signed dev cert)
+#
+# Build contexts are the repository root because every service depends on
+# workspace packages (scoring-engine, shared-types, service-kit).
+# Images are identical in dev and prod; only orchestration differs
+# (see infra/compose.prod.yml and infra/k8s/).
+
+name: vigil
+
+x-service: &service
+  restart: unless-stopped
+  networks: [internal]
+  secrets: [internal_token]
+  environment: &service-env
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+    INTERNAL_TOKEN_PATH: /run/secrets/internal_token
+    # empty = tracing disabled; `--profile observability` + set this to http://jaeger:4318
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    SENTRY_DSN: ${SENTRY_DSN:-}
+  depends_on:
+    postgres: { condition: service_healthy }
+
+services:
+  gateway:
+    build: { context: .., dockerfile: services/gateway/Dockerfile }
+    image: vigil/gateway:dev
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    networks: [edge, internal]
+    depends_on:
+      checkin-service: { condition: service_healthy }
+      distress-trend-service: { condition: service_healthy }
+      alert-service: { condition: service_healthy }
+      reminder-service: { condition: service_healthy }
+      case-integration-service: { condition: service_healthy }
+      dev-idp: { condition: service_healthy }
+    environment:
+      PORT: "8080"
+      OTEL_SERVICE_NAME: gateway
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+      INTERNAL_TOKEN_PATH: /run/secrets/internal_token
+      TLS_CERT_PATH: /run/secrets/tls_cert
+      TLS_KEY_PATH: /run/secrets/tls_key
+      DEV_IDP_URL: http://dev-idp:3000
+    secrets: [jwt_public_key, internal_token, tls_cert, tls_key]
+
+  checkin-service:
+    <<: *service
+    build: { context: .., dockerfile: services/checkin-service/Dockerfile }
+    image: vigil/checkin-service:dev
+    secrets: [internal_token, field_encryption_key]
+    environment:
+      <<: *service-env
+      OTEL_SERVICE_NAME: checkin-service
+      DATABASE_URL: postgres://vigil:vigil@postgres:5432/checkin
+      FIELD_ENCRYPTION_KEY_PATH: /run/secrets/field_encryption_key
+
+  distress-trend-service:
+    <<: *service
+    build: { context: .., dockerfile: services/distress-trend-service/Dockerfile }
+    image: vigil/distress-trend-service:dev
+    environment:
+      <<: *service-env
+      OTEL_SERVICE_NAME: distress-trend-service
+      DATABASE_URL: postgres://vigil:vigil@postgres:5432/trend
+      K_ANONYMITY: "5"
+
+  alert-service:
+    <<: *service
+    build: { context: .., dockerfile: services/alert-service/Dockerfile }
+    image: vigil/alert-service:dev
+    environment:
+      <<: *service-env
+      OTEL_SERVICE_NAME: alert-service
+      DATABASE_URL: postgres://vigil:vigil@postgres:5432/alerts
+
+  reminder-service:
+    <<: *service
+    build: { context: .., dockerfile: services/reminder-service/Dockerfile }
+    image: vigil/reminder-service:dev
+    secrets: [internal_token, field_encryption_key]
+    environment:
+      <<: *service-env
+      OTEL_SERVICE_NAME: reminder-service
+      DATABASE_URL: postgres://vigil:vigil@postgres:5432/reminders
+      FIELD_ENCRYPTION_KEY_PATH: /run/secrets/field_encryption_key
+
+  case-integration-service:
+    <<: *service
+    build: { context: .., dockerfile: services/case-integration-service/Dockerfile }
+    image: vigil/case-integration-service:dev
+    secrets: [internal_token, field_encryption_key]
+    environment:
+      <<: *service-env
+      OTEL_SERVICE_NAME: case-integration-service
+      DATABASE_URL: postgres://vigil:vigil@postgres:5432/cases
+      FIELD_ENCRYPTION_KEY_PATH: /run/secrets/field_encryption_key
+      # Deterministic MOCK of the government case system, demo identities only.
+      CASE_SYNC_MOCK: "true"
+      CASE_SYNC_VICTIM_IDS: v_demo_0001,v_demo_0002,v_demo_0003
+
+  # DEVELOPMENT-ONLY stand-in for the OIDC provider. Disabled in compose.prod.yml
+  # and absent from infra/k8s.
+  dev-idp:
+    build: { context: .., dockerfile: services/dev-idp/Dockerfile }
+    image: vigil/dev-idp:dev
+    restart: unless-stopped
+    networks: [internal]
+    environment:
+      DEV_IDP_ENABLED: "true"
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
+    secrets: [jwt_private_key]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks: [internal]
+    environment: [POSTGRES_USER=vigil, POSTGRES_PASSWORD=vigil]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vigil"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pwa:
+    build: { context: .., dockerfile: apps/pwa/Dockerfile }
+    image: vigil/pwa:dev
+    restart: unless-stopped
+    ports: ["5173:5173"]
+    networks: [edge]
+    depends_on:
+      gateway: { condition: service_healthy }
+    environment:
+      GATEWAY_URL: https://gateway:8080
+      # trust the dev gateway's self-signed cert instead of disabling verification
+      GATEWAY_CA_PATH: /run/secrets/tls_cert
+    secrets: [tls_cert]
+
+  # Optional: `docker compose --profile observability up` and set
+  # OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 to see traces at :16686.
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    profiles: [observability]
+    networks: [internal, edge]
+    ports: ["16686:16686"]
+
+networks:
+  edge: {}
+  # Services and the database are unreachable from the host and the internet.
+  internal:
+    internal: true
+
+volumes:
+  pg_data:
+
+secrets:
+  jwt_public_key:
+    file: ../secrets/jwt_public_key.pem
+  jwt_private_key:
+    file: ../secrets/jwt_private_key.pem
+  tls_cert:
+    file: ../secrets/tls_cert.pem
+  tls_key:
+    file: ../secrets/tls_key.pem
+  internal_token:
+    file: ../secrets/internal_token
+  field_encryption_key:
+    file: ../secrets/field_encryption_key

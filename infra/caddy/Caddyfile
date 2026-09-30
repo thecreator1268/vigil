@@ -1,0 +1,22 @@
+# Public TLS entry point for the Compose production profile.
+# With a real domain Caddy obtains certificates automatically; for
+# VIGIL_DOMAIN=localhost it uses its internal CA.
+{$VIGIL_DOMAIN} {
+	tls {
+		protocols tls1.3
+	}
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		-Server
+	}
+	request_body {
+		max_size 128KB
+	}
+	reverse_proxy pwa:5173
+	log {
+		# access logs carry paths and status only — never bodies
+		output stdout
+		format json
+	}
+}

@@ -1,0 +1,206 @@
+{
+  "common": {
+    "appName": "VIGIL",
+    "tagline": "A quiet place to check in",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip",
+    "done": "Done",
+    "close": "Close",
+    "home": "Home",
+    "language": "भाषा: हिन्दी",
+    "languageLabel": "Switch language to Hindi",
+    "offline": "You're offline — everything still works and will sync later."
+  },
+  "nav": {
+    "home": "Home",
+    "checkin": "Check in",
+    "entries": "My entries",
+    "sharing": "Sharing",
+    "help": "Help",
+    "main": "Main"
+  },
+  "crisis": {
+    "bar": "Need to talk to someone now?",
+    "barCall": "Call KIRAN 1800-599-0019",
+    "barFree": "free, 24/7",
+    "barMore": "More help",
+    "title": "Help, whenever you need it",
+    "intro": "You don't have to go through this alone. These services are free and confidential. You can call any time — you don't need to explain everything.",
+    "emergency": "If you are in immediate danger, call 112.",
+    "emergencyCall": "Call 112",
+    "call": "Call",
+    "visit": "Visit website",
+    "kiran": {
+      "name": "KIRAN Mental Health Helpline",
+      "desc": "Government of India. Toll-free, 24 hours, 7 days. Support in many Indian languages.",
+      "number": "1800-599-0019"
+    },
+    "icall": {
+      "name": "iCall",
+      "desc": "Free, confidential counselling by trained professionals. Find their phone and chat hours on the website."
+    },
+    "vandrevala": {
+      "name": "Vandrevala Foundation Helpline",
+      "desc": "Free counselling support, 24/7.",
+      "number": "1860-2662-345"
+    },
+    "nhaa": {
+      "name": "National Helpline Against Atrocities",
+      "desc": "Ministry of Social Justice & Empowerment. To report an atrocity or ask about your rights and relief.",
+      "number": "14566"
+    },
+    "flagged": "We've flagged this for a counselor to review. Someone will reach out to you.",
+    "flaggedMore": "If you want to talk to someone right now, these lines are open:"
+  },
+  "sync": {
+    "idle": "All caught up",
+    "savedLocal": "Saved on this device",
+    "syncing": "Syncing…",
+    "synced": "Synced",
+    "crisisPending": "Sending to your counselor — will keep trying",
+    "label": "Sync status: {{status}}"
+  },
+  "home": {
+    "greeting": "Hello. How are you doing today?",
+    "sub": "Checking in takes about a minute. You can skip anything.",
+    "cta": "Check in",
+    "lastCheckIn": "Your last check-in was {{when}}.",
+    "never": "You haven't checked in yet.",
+    "levelDaily": "We'll gently remind you to check in once a day for a while. You can change this any time.",
+    "levelGentle": "We'll remind you every few days. You can check in whenever you like.",
+    "remindersTitle": "Coming up",
+    "seeAll": "See all"
+  },
+  "checkin": {
+    "disclosureTitle": "Before you start",
+    "disclosure1": "Your answers are saved on this device first — even without internet.",
+    "disclosure2": "Your counselor may see how you're doing, so they can reach out if things seem hard.",
+    "disclosure3": "Anything you write stays on this device unless you choose to share it in Sharing settings — or it sounds like you may be in danger, then it goes to your counselor so they can help.",
+    "disclosure4": "Every question is optional. Skip whatever you like.",
+    "start": "Start",
+    "progress": "Question {{n}} of {{total}}",
+    "skipQuestion": "Skip this one",
+    "skipped": "Skipped",
+    "q": {
+      "heavy": {
+        "text": "Over the last few days, how heavy have things felt?",
+        "a0": "Not at all", "a1": "A little", "a2": "Somewhat", "a3": "Quite heavy", "a4": "Very heavy"
+      },
+      "interest": {
+        "text": "How much have you felt like doing your usual things?",
+        "a0": "Not at all", "a1": "A little", "a2": "Somewhat", "a3": "Mostly", "a4": "Very much"
+      },
+      "sleep": {
+        "text": "How have you been resting or sleeping?",
+        "a0": "Very poorly", "a1": "Poorly", "a2": "Okay", "a3": "Well", "a4": "Very well"
+      },
+      "safe": {
+        "text": "How safe have you felt where you are?",
+        "a0": "Not safe", "a1": "A little safe", "a2": "Somewhat safe", "a3": "Mostly safe", "a4": "Fully safe"
+      }
+    },
+    "wordsTitle": "Is there anything you'd like to say?",
+    "wordsSub": "Only if you want to. Choose whichever is easiest.",
+    "modeTap": "Just the taps",
+    "modeText": "Write",
+    "modeVoice": "Speak",
+    "textLabel": "Your words",
+    "textPlaceholder": "Write as much or as little as you like…",
+    "voiceStart": "Start speaking",
+    "voiceStop": "Stop",
+    "voiceRecording": "Listening… tap Stop when you're done.",
+    "voiceKept": "We noted how your voice sounded. The recording itself is not kept.",
+    "voiceTranscribed": "Here's what we heard — you can edit it:",
+    "voiceNoTranscript": "We couldn't turn your voice into words right now. You can write instead, or just save — that's fine too.",
+    "voiceNoMic": "Your microphone isn't available. You can write instead, or just save.",
+    "voiceConsentNeeded": "To turn speech into words, your recording is sent to a speech service. Turn on \"Voice to text\" in Sharing to allow this. Otherwise we only note how your voice sounded, on this device.",
+    "submit": "Save my check-in",
+    "saved": "Saved on this device.",
+    "savedSub": "Thank you for checking in.",
+    "backHome": "Back to home",
+    "reminder": {
+      "daily": "A gentle daily check-in",
+      "gentle": "Check in when you're ready"
+    }
+  },
+  "entries": {
+    "title": "My entries",
+    "intro": "Everything you've checked in with. Only you see your words here. You can erase anything you wrote.",
+    "empty": "Nothing here yet. Your check-ins will appear here.",
+    "yourWords": "What you wrote",
+    "noWords": "No words with this check-in.",
+    "erase": "Erase what I wrote",
+    "eraseConfirm": "Erase these words? This can't be undone. Your answers stay.",
+    "erased": "Erased.",
+    "answered": "{{count}} answer",
+    "answered_other": "{{count}} answers",
+    "state": {
+      "pending": "Saved on this device",
+      "synced": "Synced",
+      "crisis-synced": "Shared with your counselor"
+    }
+  },
+  "sharing": {
+    "title": "What I've agreed to share",
+    "intro": "You're in charge of this. Change your mind any time — every change is recorded, and nothing is shared without your say, except when you might be in danger.",
+    "on": "On",
+    "off": "Off",
+    "history": "History of your choices",
+    "noHistory": "You haven't changed anything yet.",
+    "turnedOn": "Turned on",
+    "turnedOff": "Turned off",
+    "scope": {
+      "share-free-text": {
+        "title": "Share what I write",
+        "desc": "Your counselor can read the words you write in check-ins. If you turn this off, they can't see them any more."
+      },
+      "share-voice-features": {
+        "title": "Share how my voice sounded",
+        "desc": "Only simple measurements (like how steady your voice was). Never the recording."
+      },
+      "voice-transcription": {
+        "title": "Voice to text",
+        "desc": "When you speak a check-in, send the recording to a speech service to turn it into words. The recording is not kept."
+      },
+      "counselor-contact": {
+        "title": "My counselor may contact me",
+        "desc": "If things seem hard, your counselor may call or message you."
+      },
+      "case-linking": {
+        "title": "Link my case updates",
+        "desc": "Show hearing dates and compensation updates from your case record here."
+      }
+    }
+  },
+  "reminders": {
+    "title": "Reminders",
+    "empty": "No reminders right now.",
+    "type": {
+      "hearing": "Hearing",
+      "compensation": "Compensation",
+      "checkin": "Check-in"
+    },
+    "due": "{{when}}",
+    "hearingNote": "Court hearing date from your case record"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "next": "Next",
+    "start": "Get started",
+    "step": "Step {{n}} of {{total}}",
+    "s1": { "title": "Check in, in your own way", "body": "Tap, write or speak — whatever feels easiest. Every question can be skipped." },
+    "s2": { "title": "Works without internet", "body": "Everything is saved on this phone first. It syncs quietly when you're back online." },
+    "s3": { "title": "Your words stay with you", "body": "What you write stays on this device unless you choose to share it." },
+    "s4": { "title": "Someone is looking out for you", "body": "If things seem to be getting harder, your counselor will know to reach out." },
+    "s5": { "title": "Help is always here", "body": "The help line at the top of every screen is free and open 24/7." }
+  },
+  "relative": {
+    "justNow": "just now",
+    "today": "today",
+    "yesterday": "yesterday",
+    "daysAgo": "{{count}} days ago",
+    "inDays": "in {{count}} days",
+    "tomorrow": "tomorrow"
+  }
+}

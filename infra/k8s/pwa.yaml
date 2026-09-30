@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pwa
+  labels: { app: pwa }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: pwa } }
+  template:
+    metadata:
+      labels: { app: pwa }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: pwa
+          image: vigil/pwa
+          ports: [{ containerPort: 5173 }]
+          env:
+            - { name: GATEWAY_URL, value: "https://gateway:8080" }
+            - { name: GATEWAY_CA_PATH, value: /run/secrets/tls_cert }
+          volumeMounts:
+            - { name: gateway-ca, mountPath: /run/secrets, readOnly: true }
+          readinessProbe: { httpGet: { path: /healthz, port: 5173 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 5173 }, periodSeconds: 20 }
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: gateway-ca
+          secret: { secretName: vigil-gateway-tls, items: [{ key: tls.crt, path: tls_cert }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: pwa, labels: { app: pwa } }
+spec:
+  selector: { app: pwa }
+  ports: [{ port: 80, targetPort: 5173 }]

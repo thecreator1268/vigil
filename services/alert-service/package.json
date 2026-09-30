@@ -1,0 +1,32 @@
+{
+  "name": "@vigil/alert-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Alert queue: severity-sorted, idempotent intake, acknowledgement workflow.",
+  "main": "dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch --onSuccess \"node dist/main.js\"",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@vigil/scoring-engine": "workspace:*",
+    "@vigil/service-kit": "workspace:*",
+    "@vigil/shared-types": "workspace:*",
+    "fastify": "^5.12.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.0.2",
+    "tsup": "^8.5.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

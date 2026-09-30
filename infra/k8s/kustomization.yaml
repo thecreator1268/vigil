@@ -1,0 +1,26 @@
+# Production/staging manifests. Same images as `docker compose` — only the
+# orchestration differs. The dev-idp is deliberately absent: production uses
+# the ministry's OIDC provider (set JWT_ISSUER / JWT_AUDIENCE in gateway.yaml).
+#
+#   kubectl apply -k infra/k8s
+#
+# Secrets are NOT in this directory. Create them from your secret store
+# (see README "Deploying to Kubernetes") before applying.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: vigil
+resources:
+  - namespace.yaml
+  - network-policies.yaml
+  - gateway.yaml
+  - services.yaml
+  - pwa.yaml
+  - ingress.yaml
+images:
+  - { name: vigil/gateway, newTag: "1.0.0" }
+  - { name: vigil/checkin-service, newTag: "1.0.0" }
+  - { name: vigil/distress-trend-service, newTag: "1.0.0" }
+  - { name: vigil/alert-service, newTag: "1.0.0" }
+  - { name: vigil/reminder-service, newTag: "1.0.0" }
+  - { name: vigil/case-integration-service, newTag: "1.0.0" }
+  - { name: vigil/pwa, newTag: "1.0.0" }

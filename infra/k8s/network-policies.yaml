@@ -1,0 +1,90 @@
+# Default-deny, then allow exactly the paths the architecture needs:
+#   ingress-controller → pwa, gateway
+#   pwa → gateway
+#   gateway → the five services
+#   checkin → alert, trend (outbox) · trend → alert · case → reminder
+#   every service → postgres (managed DB, port 5432) and DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: default-deny }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-dns }
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector: { matchLabels: { k8s-app: kube-dns } }
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: edge-from-ingress }
+spec:
+  podSelector:
+    matchExpressions: [{ key: app, operator: In, values: [pwa, gateway] }]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: ingress-nginx } }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: pwa-to-gateway }
+spec:
+  podSelector: { matchLabels: { app: gateway } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ podSelector: { matchLabels: { app: pwa } } }]
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: pwa-egress }
+spec:
+  podSelector: { matchLabels: { app: pwa } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ podSelector: { matchLabels: { app: gateway } } }]
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: gateway-egress }
+spec:
+  podSelector: { matchLabels: { app: gateway } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ podSelector: { matchLabels: { tier: service } } }]
+      ports: [{ port: 3000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: services-from-gateway-and-peers }
+spec:
+  podSelector: { matchLabels: { tier: service } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app: gateway } }
+        - podSelector: { matchLabels: { tier: service } }
+      ports: [{ port: 3000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: services-egress }
+spec:
+  podSelector: { matchLabels: { tier: service } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ podSelector: { matchLabels: { tier: service } } }]
+      ports: [{ port: 3000 }]
+    # Managed PostgreSQL (replace with your DB subnet)
+    - to: [{ ipBlock: { cidr: 10.0.0.0/8 } }]
+      ports: [{ port: 5432 }]

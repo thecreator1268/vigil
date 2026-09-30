@@ -1,0 +1,4 @@
+# Lets `docker compose up` work from the repository root.
+# The stack itself is defined in infra/docker-compose.yml.
+include:
+  - infra/docker-compose.yml

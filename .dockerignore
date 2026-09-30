@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+.git
+.github
+**/*.env*
+**/.env*
+secrets
+**/test-results
+**/playwright-report
+**/blob-report
+**/__fixtures__
+**/fixtures
+**/*.log
+infra/k8s

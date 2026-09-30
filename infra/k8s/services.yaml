@@ -1,0 +1,275 @@
+# The five backend services. Each owns its own database (vigil-db secret keys:
+# checkin, trend, alerts, reminders, cases) and is reachable only from the
+# gateway and its peers (see network-policies.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkin-service
+  labels: { app: checkin-service, tier: service }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: checkin-service } }
+  template:
+    metadata:
+      labels: { app: checkin-service, tier: service }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: checkin-service
+          image: vigil/checkin-service
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: OTEL_SERVICE_NAME, value: checkin-service }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: vigil-db, key: checkin } }
+            - { name: ALERT_SERVICE_URL, value: "http://alert-service:3000" }
+            - { name: TREND_SERVICE_URL, value: "http://distress-trend-service:3000" }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom: { configMapKeyRef: { name: vigil-observability, key: otlpEndpoint, optional: true } }
+            - name: SENTRY_DSN
+              valueFrom: { secretKeyRef: { name: vigil-observability, key: sentryDsn, optional: true } }
+          volumeMounts:
+            - { name: secrets, mountPath: /run/secrets, readOnly: true }
+          readinessProbe: { httpGet: { path: /readyz, port: 3000 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 3000 }, periodSeconds: 20 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: secrets
+          projected:
+            sources:
+              - secret: { name: vigil-internal, items: [{ key: token, path: internal_token }] }
+              - secret: { name: vigil-field-key, items: [{ key: key, path: field_encryption_key }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: checkin-service, labels: { app: checkin-service, tier: service } }
+spec:
+  selector: { app: checkin-service }
+  ports: [{ port: 3000, targetPort: 3000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: distress-trend-service
+  labels: { app: distress-trend-service, tier: service }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: distress-trend-service } }
+  template:
+    metadata:
+      labels: { app: distress-trend-service, tier: service }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: distress-trend-service
+          image: vigil/distress-trend-service
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: OTEL_SERVICE_NAME, value: distress-trend-service }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: vigil-db, key: trend } }
+            - { name: ALERT_SERVICE_URL, value: "http://alert-service:3000" }
+            - { name: K_ANONYMITY, value: "5" }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom: { configMapKeyRef: { name: vigil-observability, key: otlpEndpoint, optional: true } }
+            - name: SENTRY_DSN
+              valueFrom: { secretKeyRef: { name: vigil-observability, key: sentryDsn, optional: true } }
+          volumeMounts:
+            - { name: secrets, mountPath: /run/secrets, readOnly: true }
+          readinessProbe: { httpGet: { path: /readyz, port: 3000 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 3000 }, periodSeconds: 20 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: secrets
+          projected:
+            sources:
+              - secret: { name: vigil-internal, items: [{ key: token, path: internal_token }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: distress-trend-service, labels: { app: distress-trend-service, tier: service } }
+spec:
+  selector: { app: distress-trend-service }
+  ports: [{ port: 3000, targetPort: 3000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-service
+  labels: { app: alert-service, tier: service }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: alert-service } }
+  template:
+    metadata:
+      labels: { app: alert-service, tier: service }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: alert-service
+          image: vigil/alert-service
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: OTEL_SERVICE_NAME, value: alert-service }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: vigil-db, key: alerts } }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom: { configMapKeyRef: { name: vigil-observability, key: otlpEndpoint, optional: true } }
+            - name: SENTRY_DSN
+              valueFrom: { secretKeyRef: { name: vigil-observability, key: sentryDsn, optional: true } }
+          volumeMounts:
+            - { name: secrets, mountPath: /run/secrets, readOnly: true }
+          readinessProbe: { httpGet: { path: /readyz, port: 3000 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 3000 }, periodSeconds: 20 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: secrets
+          projected:
+            sources:
+              - secret: { name: vigil-internal, items: [{ key: token, path: internal_token }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: alert-service, labels: { app: alert-service, tier: service } }
+spec:
+  selector: { app: alert-service }
+  ports: [{ port: 3000, targetPort: 3000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reminder-service
+  labels: { app: reminder-service, tier: service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: reminder-service } }
+  template:
+    metadata:
+      labels: { app: reminder-service, tier: service }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: reminder-service
+          image: vigil/reminder-service
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: OTEL_SERVICE_NAME, value: reminder-service }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: vigil-db, key: reminders } }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom: { configMapKeyRef: { name: vigil-observability, key: otlpEndpoint, optional: true } }
+            - name: SENTRY_DSN
+              valueFrom: { secretKeyRef: { name: vigil-observability, key: sentryDsn, optional: true } }
+          volumeMounts:
+            - { name: secrets, mountPath: /run/secrets, readOnly: true }
+          readinessProbe: { httpGet: { path: /readyz, port: 3000 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 3000 }, periodSeconds: 20 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: secrets
+          projected:
+            sources:
+              - secret: { name: vigil-internal, items: [{ key: token, path: internal_token }] }
+              - secret: { name: vigil-field-key, items: [{ key: key, path: field_encryption_key }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: reminder-service, labels: { app: reminder-service, tier: service } }
+spec:
+  selector: { app: reminder-service }
+  ports: [{ port: 3000, targetPort: 3000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: case-integration-service
+  labels: { app: case-integration-service, tier: service }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: case-integration-service } }
+  template:
+    metadata:
+      labels: { app: case-integration-service, tier: service }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: case-integration-service
+          image: vigil/case-integration-service
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: OTEL_SERVICE_NAME, value: case-integration-service }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: vigil-db, key: cases } }
+            - { name: REMINDER_SERVICE_URL, value: "http://reminder-service:3000" }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom: { configMapKeyRef: { name: vigil-observability, key: otlpEndpoint, optional: true } }
+            - name: SENTRY_DSN
+              valueFrom: { secretKeyRef: { name: vigil-observability, key: sentryDsn, optional: true } }
+          volumeMounts:
+            - { name: secrets, mountPath: /run/secrets, readOnly: true }
+          readinessProbe: { httpGet: { path: /readyz, port: 3000 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 3000 }, periodSeconds: 20 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: secrets
+          projected:
+            sources:
+              - secret: { name: vigil-internal, items: [{ key: token, path: internal_token }] }
+              - secret: { name: vigil-field-key, items: [{ key: key, path: field_encryption_key }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: case-integration-service, labels: { app: case-integration-service, tier: service } }
+spec:
+  selector: { app: case-integration-service }
+  ports: [{ port: 3000, targetPort: 3000 }]

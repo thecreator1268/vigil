@@ -1,0 +1,40 @@
+{
+  "name": "@vigil/design-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tokens, Feather icon badges, Framer Motion + View Transition primitives.",
+  "type": "module",
+  "sideEffects": ["*.css"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./tokens.css": "./src/tokens.css"
+  },
+  "files": ["dist", "src/tokens.css"],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"design-system: covered by PWA tests\"",
+    "test:coverage": "echo \"design-system: covered by PWA tests\""
+  },
+  "peerDependencies": {
+    "framer-motion": "^12.0.0 || ^13.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "framer-motion": "^13.4.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.5.0",
+    "tsup": "^8.5.1",
+    "typescript": "~6.0.3"
+  }
+}

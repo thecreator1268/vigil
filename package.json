@@ -1,0 +1,33 @@
+{
+  "name": "vigil",
+  "private": true,
+  "description": "VIGIL — dignity-first distress sentinel for survivors of atrocities (SIH26094)",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "build:packages": "pnpm --filter \"./packages/**\" build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test:coverage",
+    "contract:generate": "pnpm --filter @vigil/shared-types generate",
+    "secrets:dev": "node scripts/gen-dev-secrets.mjs",
+    "up": "docker compose up --build",
+    "down": "docker compose down",
+    "e2e": "pnpm --filter @vigil/pwa e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.0.0",
+    "selfsigned": "^5.5.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0"
+  },
+  "type": "module"
+}
