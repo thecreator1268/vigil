@@ -48,6 +48,9 @@ await new Promise((resolve) => {
 });
 
 const victimId = `v_smoke_${Date.now().toString(36)}`;
+// A fresh region per run keeps the k-anonymity check a genuine cohort of one on
+// a long-lived database (five runs into a shared region would reach k=5).
+const region = `smoke-${Date.now().toString(36)}`;
 const victim = await token('victim', victimId);
 const counselor = await token('counselor');
 const admin = await token('admin');
@@ -62,7 +65,7 @@ const submit = (i, selfReport, extra = {}) =>
     id: randomUUID(), victimId, createdAt: now - (10 - i) * DAY, selfReport: { heavy: 2, safe: 2 },
     crisisFlag: false, compositeScore: 0.35 * selfReport,
     signalTerms: { selfReport, sentiment: selfReport, engagement: 0, voice: null },
-    configVersion: 1, channel: 'app', fastPath: false, region: 'smoke-region', ...extra,
+    configVersion: 1, channel: 'app', fastPath: false, region, ...extra,
   });
 
 console.log('Building a baseline, then a sustained drop…');
@@ -114,10 +117,10 @@ check('trend view returns points + baseline', trendView.json?.points?.length ===
 
 console.log('RBAC…');
 check('victim cannot read the alert queue', (await call('GET', '/v1/alerts', victim)).status === 403);
-check('counselor token rejected on /v1/admin/*', (await call('GET', '/v1/admin/rollups?region=smoke-region', counselor)).status === 403);
+check('counselor token rejected on /v1/admin/*', (await call('GET', `/v1/admin/rollups?region=${region}`, counselor)).status === 403);
 check('counselor token rejected on unknown /v1/admin/* path', (await call('GET', '/v1/admin/anything', counselor)).status === 403);
 check('no token → 401', (await call('GET', '/v1/alerts')).status === 401);
-const rollup = await call('GET', '/v1/admin/rollups?region=smoke-region', admin);
+const rollup = await call('GET', `/v1/admin/rollups?region=${region}`, admin);
 check('admin rollup is k-anonymity suppressed for a cohort of one', rollup.json?.anonymizedAggregate?.suppressed === true);
 check('API responses are never cacheable', (await call('GET', '/v1/alerts', counselor)).headers.get('cache-control') === 'no-store');
 

@@ -5,21 +5,21 @@ ARG PKG=@vigil/dev-idp
 
 # ---- deps ----
 # Depends ONLY on the lockfile + workspace manifest, so this (slow, network)
-# layer is reused until dependencies actually change. pnpm's content store
-# lives in a BuildKit cache mount shared by every service image.
+# layer is reused until dependencies actually change. The pnpm store is part of
+# the layer itself (not a BuildKit cache mount): CI's layer cache (type=gha)
+# does not persist cache-mount contents, so a restored layer would otherwise
+# arrive with an empty store and break the --offline install.
 FROM node:22-alpine AS deps
 WORKDIR /app
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    corepack enable && pnpm fetch --frozen-lockfile --store-dir /pnpm/store
+RUN corepack enable && pnpm fetch --frozen-lockfile --store-dir /pnpm/store
 
 # ---- build ----
 FROM deps AS build
 ARG PKG
 COPY . .
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --offline --frozen-lockfile --store-dir /pnpm/store --filter "${PKG}..." \
+RUN pnpm install --offline --frozen-lockfile --store-dir /pnpm/store --filter "${PKG}..." \
  && pnpm --filter "${PKG}..." build \
  && pnpm --filter "${PKG}" deploy --prod --offline --store-dir /pnpm/store /out
 
