@@ -6,8 +6,8 @@
  */
 type Vec = [number, number];
 
-const NAVY: [number, number, number, number] = [0.114, 0.204, 0.38, 1]; // #1d3461
-const ICE: [number, number, number, number] = [0.902, 0.949, 0.976, 1]; // #e6f2f9
+const NAVY: [number, number, number, number] = [0.118, 0.153, 0.38, 1]; // #1e2761 (primary)
+const ICE: [number, number, number, number] = [0.863, 0.922, 0.984, 1]; // #dcebfb (ice)
 const FRAMES = 18;
 const ease = { o: { x: [0.4], y: [0] }, i: { x: [0.2], y: [1] } };
 const staticVal = <T>(k: T) => ({ a: 0, k });

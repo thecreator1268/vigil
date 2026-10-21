@@ -21,7 +21,7 @@ const SPEECH = process.env.SPEECH_PROXY_ORIGIN ?? '';
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml',
-  '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.map': 'application/json', '.txt': 'text/plain',
+  '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.txt': 'text/plain',
 };
 
 const SECURITY_HEADERS = {

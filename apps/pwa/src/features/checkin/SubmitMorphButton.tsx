@@ -15,17 +15,30 @@ export function SubmitMorphButton({ saved, disabled, onClick }: { saved: boolean
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <motion.button
-        type="button"
-        onClick={onClick}
-        disabled={disabled || saved}
-        layout
-        transition={morph}
-        aria-label={saved ? t('checkin.saved') : undefined}
-        className={`flex h-14 items-center justify-center overflow-hidden bg-navy-900 font-semibold text-white disabled:cursor-default ${
-          saved ? 'w-14 rounded-full' : 'w-full rounded-2xl px-6 hover:bg-navy-700'
-        }`}
-      >
+      <div className="relative">
+        {/* One soft ice halo, once, on save — never a spinner, never a loop. */}
+        <AnimatePresence>
+          {saved && (
+            <motion.span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-full bg-ice-strong"
+              initial={{ opacity: 0.7, scale: 1 }}
+              animate={{ opacity: 0, scale: 2 }}
+              transition={{ duration: reduced ? 0.01 : 0.52, ease: 'easeOut' }}
+            />
+          )}
+        </AnimatePresence>
+        <motion.button
+          type="button"
+          onClick={onClick}
+          disabled={disabled || saved}
+          layout
+          transition={morph}
+          aria-label={saved ? t('checkin.saved') : undefined}
+          className={`relative flex h-14 items-center justify-center overflow-hidden bg-navy-900 font-semibold text-white disabled:cursor-default ${
+            saved ? 'w-14 rounded-full' : 'w-full rounded-2xl px-6 hover:bg-navy-700'
+          }`}
+        >
         <AnimatePresence mode="wait" initial={false}>
           {saved ? (
             <motion.svg key="check" width="28" height="28" viewBox="0 0 28 28" aria-hidden>
@@ -47,7 +60,8 @@ export function SubmitMorphButton({ saved, disabled, onClick }: { saved: boolean
             </motion.span>
           )}
         </AnimatePresence>
-      </motion.button>
+        </motion.button>
+      </div>
       <AnimatePresence>
         {saved && (
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade} className="text-lg font-semibold text-navy-900" role="status">

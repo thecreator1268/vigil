@@ -26,8 +26,8 @@ export function Home() {
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold text-navy-900">{t('home.greeting')}</h1>
-        <p className="text-ink-muted">{t('home.sub')}</p>
+        <h1 className="font-serif text-4xl font-semibold leading-tight text-navy-900">{t('home.greeting')}</h1>
+        <p className="text-lg leading-relaxed text-ink-muted">{t('home.sub')}</p>
         <button
           type="button"
           onClick={() => go('/checkin')}
@@ -47,7 +47,7 @@ export function Home() {
       {!!upcoming?.length && (
         <section aria-labelledby="upcoming" className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 id="upcoming" className="font-semibold text-navy-900">{t('home.remindersTitle')}</h2>
+            <h2 id="upcoming" className="font-serif text-xl font-semibold text-navy-900">{t('home.remindersTitle')}</h2>
             <button type="button" onClick={() => go('/reminders')} className="text-sm text-navy-700 underline underline-offset-2">
               {t('home.seeAll')}
             </button>

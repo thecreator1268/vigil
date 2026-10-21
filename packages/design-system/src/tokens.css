@@ -1,34 +1,78 @@
 /*
  * VIGIL design tokens for Tailwind v4 (@theme) + motion custom properties
  * shared with the View Transitions API. Import after `@import "tailwindcss"`.
+ *
+ * 2026-10 redesign: values now follow the "steady" design system
+ * (design-system/project/tokens.json is the source of truth; this file is
+ * its CSS mirror for the real app, same as design-system/project/assets/
+ * tokens.css mirrors it for the static previews). Token NAMES are kept
+ * stable on purpose — apps/pwa's ~230 existing `bg-navy-900` / `text-ink-
+ * muted` / `border-ice-300` etc. classes all re-skin automatically from
+ * these value changes alone; no component markup had to change for colour
+ * or radius. New token names (canvas, primary, ice-strong, coral, …) are
+ * added alongside for anything built after this redesign.
+ *
+ * Light mode only for now — the real app doesn't yet have a dark-mode
+ * toggle (the static design-system previews do, as a reference). Dark
+ * values from tokens.json are left here as a comment for when that lands.
  */
 @theme {
-  --color-navy-900: #0f1f3d;
-  --color-navy-700: #1d3461;
-  --color-navy-500: #34568b;
-  --color-ice-50: #f3f9fc;
-  --color-ice-100: #e6f2f9;
-  --color-ice-300: #bcdcee;
-  --color-ice-500: #5ea9cf;
-  --color-paper: #fbfaf7;
-  --color-ink: #1b2433;
-  --color-ink-muted: #4a5568;
-  --color-sage-700: #2f6a4d;
-  --color-sage-100: #e3f1e9;
-  --color-urgent-700: #9f2a1f;
-  --color-urgent-100: #fbe9e6;
-  --color-elevated-700: #7a4b00;
-  --color-elevated-100: #fff1d6;
+  /* ---- new token names (match design-system/project/tokens.json) ---- */
+  --color-canvas: #ffffff;
+  --color-panel: #f5f7fa;
+  --color-border: #c9d3e0;
+  --color-border-strong: #7a88a3;
+  --color-primary: #1e2761;
+  --color-on-primary: #ffffff;
+  --color-ice: #dcebfb;
+  --color-on-ice: #1e2761;
+  --color-ice-strong: #b7d3f2;
+  --color-coral: #e8735a;
+  --color-on-coral: #1e2761;
+  --color-coral-tint: #fce8e3;
+  --color-coral-ink: #9c3420;
+  --color-focus-ring: #1e2761;
 
-  --font-sans: "Noto Sans", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* ---- existing names, remapped to the new palette ---- */
+  --color-navy-900: #1e2761; /* = primary / ink */
+  --color-navy-700: #273072; /* hover/active shade of primary */
+  --color-navy-500: #7a88a3; /* = border-strong (was a mid-blue; now a control-edge tone) */
+  --color-ice-50: #eef5fc; /* a touch paler than --color-ice, for the subtlest fills */
+  --color-ice-100: #dcebfb; /* = ice */
+  --color-ice-300: #c9d3e0; /* = border */
+  --color-ice-500: #1e2761; /* = primary/focus-ring (was a mid-blue accent) */
+  --color-paper: #ffffff; /* = canvas */
+  --color-ink: #1e2761;
+  --color-ink-muted: #46517a;
+  --color-sage-700: #2f6a4d; /* unchanged: a "fine" / positive note; outside this redesign's scope */
+  --color-sage-100: #e3f1e9;
+  --color-urgent-700: #9c3420; /* = coral-ink */
+  --color-urgent-100: #fce8e3; /* = coral-tint */
+  --color-elevated-700: #1e2761; /* was amber; the new system has only ONE accent colour (coral,
+                                     urgent-only) plus ice-strong for the next tier down — see
+                                     design-system/project/README.md §2. Text on ice-strong = on-ice. */
+  --color-elevated-100: #b7d3f2; /* = ice-strong */
+
+  --font-serif: 'Source Serif 4', Cambria, Georgia, serif;
+  --font-sans: 'Source Sans 3', 'Noto Sans Devanagari', 'Noto Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Tailwind's own radius scale — every existing `rounded-2xl` / `rounded-xl`
+     / `rounded-sm` class in the app picks these up with zero markup changes. */
+  --radius-sm: 8px; /* was 2px */
+  --radius-xl: 14px; /* was 12px — radius-md in the new scale: buttons, option rows */
+  --radius-2xl: 22px; /* was 16px — radius-lg in the new scale: cards, sheets */
 }
 
 :root {
-  --motion-instant: 120ms;
-  --motion-quick: 220ms;
-  --motion-standard: 320ms;
-  --motion-deliberate: 500ms;
-  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Durations keep their old names (every alertQueueVariants()/useMotion()
+     call site is unchanged) but now carry the new system's actual values. */
+  --motion-instant: 160ms; /* was 120ms — = "quick" */
+  --motion-quick: 320ms; /* was 220ms — = "base" */
+  --motion-standard: 320ms; /* was 320ms — = "base" (unchanged numerically) */
+  --motion-deliberate: 520ms; /* was 500ms — = "calm" */
+  --ease-standard: cubic-bezier(0.45, 0.05, 0.25, 1); /* = ease-in-place (was 0.4,0,0.2,1) */
+  --ease-out-arrival: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-place: cubic-bezier(0.45, 0.05, 0.25, 1);
 }
 
 /* Collapse, don't disable: the state change must still register. */
@@ -58,6 +102,6 @@
 
 /* Visible focus ring everywhere (WCAG 2.4.7). */
 :focus-visible {
-  outline: 3px solid var(--color-ice-500);
+  outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
 }

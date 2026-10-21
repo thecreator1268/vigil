@@ -32,7 +32,10 @@ export function CheckInFlow() {
   const { t } = useTranslation();
   const go = useTransitionNavigate();
   const victimId = useStore((s) => s.session.subject) ?? (import.meta.env.VITE_DEMO_VICTIM_ID as string | undefined) ?? 'v_demo_0001';
-  const [step, setStep] = useState<Step>('disclosure');
+  // Shown once, the first time, on this device — never again after that.
+  const introSeen = useStore((s) => s.ui.checkinIntroSeen);
+  const setUi = useStore((s) => s.setUi);
+  const [step, setStep] = useState<Step>(() => (introSeen ? 'questions' : 'disclosure'));
   const [qIndex, setQIndex] = useState(0);
   const [mode, setMode] = useState<Mode>('tap');
   const [voice, setVoice] = useState<{ pitchVar: number; rms: number } | null>(null);
@@ -65,7 +68,7 @@ export function CheckInFlow() {
       <AnimatePresence mode="wait" initial={false}>
         {step === 'disclosure' && (
           <motion.section key="disclosure" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={page} aria-labelledby="disc-title" className="space-y-5">
-            <h1 id="disc-title" className="text-2xl font-semibold text-navy-900">{t('checkin.disclosureTitle')}</h1>
+            <h1 id="disc-title" className="font-serif text-3xl font-semibold text-navy-900">{t('checkin.disclosureTitle')}</h1>
             <ul className="space-y-3">
               {[
                 [FiHardDrive, 'checkin.disclosure1'],
@@ -79,7 +82,14 @@ export function CheckInFlow() {
                 </li>
               ))}
             </ul>
-            <button type="button" onClick={() => setStep('questions')} className="w-full rounded-2xl bg-navy-900 px-6 py-4 font-semibold text-white hover:bg-navy-700">
+            <button
+              type="button"
+              onClick={() => {
+                if (!introSeen) setUi({ checkinIntroSeen: true });
+                setStep('questions');
+              }}
+              className="w-full rounded-2xl bg-navy-900 px-6 py-4 font-semibold text-white hover:bg-navy-700"
+            >
               {t('checkin.start')}
             </button>
           </motion.section>
@@ -93,7 +103,7 @@ export function CheckInFlow() {
               name="selfReport"
               render={({ field }) => (
                 <fieldset>
-                  <legend className="mb-4 text-xl font-semibold text-navy-900">{t(`checkin.q.${question.id}.text`)}</legend>
+                  <legend className="mb-4 font-serif text-2xl font-semibold text-navy-900">{t(`checkin.q.${question.id}.text`)}</legend>
                   <div className="grid gap-2">
                     {[0, 1, 2, 3, 4].map((v) => {
                       const checked = field.value[question.id] === v;
@@ -147,7 +157,7 @@ export function CheckInFlow() {
         {step === 'words' && (
           <motion.section key="words" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={page} className="space-y-5">
             <header>
-              <h2 className="text-xl font-semibold text-navy-900">{t('checkin.wordsTitle')}</h2>
+              <h2 className="font-serif text-2xl font-semibold text-navy-900">{t('checkin.wordsTitle')}</h2>
               <p className="mt-1 text-ink-muted">{t('checkin.wordsSub')}</p>
             </header>
             <div role="radiogroup" aria-label={t('checkin.wordsTitle')} className="grid grid-cols-3 gap-2">

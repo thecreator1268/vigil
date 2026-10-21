@@ -111,7 +111,7 @@ export function AlertDetail() {
           <header className="alert-card-thumb space-y-3 rounded-2xl border border-ice-300 bg-white p-5">
             <div className="flex flex-wrap items-center gap-2">
               <SeverityBadge severity={alert.severity} />
-              <h1 className="text-xl font-semibold text-navy-900">{alert.victimId}</h1>
+              <h1 className="font-serif text-2xl font-semibold text-navy-900">{alert.victimId}</h1>
               <span className="text-sm text-ink-muted">· raised {timeAgo(alert.createdAt)}</span>
               {alert.status !== 'open' && (
                 <span className="rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-700">
@@ -140,7 +140,7 @@ export function AlertDetail() {
         {detail && (
           <div className="grid gap-6 lg:grid-cols-5">
             <section aria-labelledby="told" className="space-y-3 lg:col-span-3">
-              <h2 id="told" className="flex items-center gap-2 font-semibold text-navy-900">
+              <h2 id="told" className="flex items-center gap-2 font-serif text-xl font-semibold text-navy-900">
                 <IconBadge icon={FiMessageSquare} size="sm" /> What they told us
               </h2>
               {detail.checkIns.length === 0 && <p className="text-sm text-ink-muted">No check-ins yet.</p>}
@@ -173,12 +173,12 @@ export function AlertDetail() {
 
             <div className="space-y-6 lg:col-span-2">
               <section aria-labelledby="trend-h" className="space-y-2 rounded-2xl border border-ice-300 bg-white p-4">
-                <h2 id="trend-h" className="font-semibold text-navy-900">Compared with what's usual for them</h2>
+                <h2 id="trend-h" className="font-serif text-lg font-semibold text-navy-900">Compared with what's usual for them</h2>
                 <TrendChart trend={detail.trend} />
               </section>
 
               <section aria-labelledby="case-h" className="space-y-2 rounded-2xl border border-ice-300 bg-white p-4">
-                <h2 id="case-h" className="flex items-center gap-2 font-semibold text-navy-900">
+                <h2 id="case-h" className="flex items-center gap-2 font-serif text-lg font-semibold text-navy-900">
                   <IconBadge icon={FiBriefcase} size="sm" /> Case
                 </h2>
                 {detail.caseLinks.length === 0 ? (
@@ -197,7 +197,7 @@ export function AlertDetail() {
               </section>
 
               <section aria-labelledby="rem-h" className="space-y-2 rounded-2xl border border-ice-300 bg-white p-4">
-                <h2 id="rem-h" className="flex items-center gap-2 font-semibold text-navy-900">
+                <h2 id="rem-h" className="flex items-center gap-2 font-serif text-lg font-semibold text-navy-900">
                   <IconBadge icon={FiCalendar} size="sm" /> Reminders
                 </h2>
                 {detail.reminders.length === 0 ? (

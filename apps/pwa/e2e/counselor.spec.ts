@@ -22,7 +22,7 @@ test('crisis fast-path: calm confirmation for the person → urgent alert for th
   await expect(staff.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
   const card = staff.getByRole('listitem').filter({ hasText: 'v_demo_0001' }).filter({ hasText: /harming themselves/ }).first();
   await expect(card).toBeVisible({ timeout: 20_000 });
-  await expect(card.getByText('Urgent')).toBeVisible();
+  await expect(card.getByText('Reach out today')).toBeVisible();
   await expect(card).not.toContainText(/raw_score|\b0\.\d+/);
 
   await card.getByRole('button', { name: /Open details/ }).click();

@@ -1,4 +1,4 @@
-import { IconBadge } from '@vigil/design-system';
+import { colors, IconBadge } from '@vigil/design-system';
 import type { AnonymizedAggregate } from '@vigil/shared-types';
 import { useEffect, useState } from 'react';
 import { FiAlertOctagon, FiAlertTriangle, FiCheckCircle, FiEyeOff, FiUsers } from 'react-icons/fi';
@@ -35,7 +35,7 @@ export function AdminDashboard() {
     <section aria-labelledby="admin-title" className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 id="admin-title" className="text-2xl font-semibold text-navy-900">Regional overview</h1>
+          <h1 id="admin-title" className="font-serif text-3xl font-semibold text-navy-900">Regional overview</h1>
           <p className="text-sm text-ink-muted">Anonymized aggregates for the last 28 days. No individual is identifiable here.</p>
         </div>
         <label className="text-sm">
@@ -71,15 +71,15 @@ export function AdminDashboard() {
             <strong className="text-navy-900">{agg.alerts?.acknowledgedWithin24hPct == null ? 'no alerts yet' : `${agg.alerts.acknowledgedWithin24hPct}%`}</strong>
           </p>
           <section aria-labelledby="weekly" className="rounded-2xl border border-ice-300 bg-white p-4">
-            <h2 id="weekly" className="mb-3 font-semibold text-navy-900">Check-ins per week</h2>
+            <h2 id="weekly" className="mb-3 font-serif text-xl font-semibold text-navy-900">Check-ins per week</h2>
             <div className="h-56" role="img" aria-label={`Weekly check-ins: ${agg.weeklyCheckIns.map((w) => w.count).join(', ')}`}>
               <ResponsiveContainer>
                 <BarChart data={agg.weeklyCheckIns}>
-                  <CartesianGrid stroke="#e6f2f9" vertical={false} />
-                  <XAxis dataKey="weekStart" tickFormatter={(t: number) => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} tick={{ fontSize: 12, fill: '#4a5568' }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#4a5568' }} width={32} />
+                  <CartesianGrid stroke={colors.border} vertical={false} />
+                  <XAxis dataKey="weekStart" tickFormatter={(t: number) => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} tick={{ fontSize: 12, fill: colors.inkMuted }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: colors.inkMuted }} width={32} />
                   <Tooltip labelFormatter={(t) => `Week of ${new Date(Number(t)).toLocaleDateString('en-IN', { dateStyle: 'medium' })}`} />
-                  <Bar dataKey="count" name="Check-ins" fill="#34568b" radius={[6, 6, 0, 0]} animationDuration={400} />
+                  <Bar dataKey="count" name="Check-ins" fill={colors.primary} radius={[6, 6, 0, 0]} animationDuration={400} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

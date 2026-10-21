@@ -46,6 +46,9 @@ export interface UiSlice {
     checkInLevel: 'gentle' | 'daily';
     /** Coarse district, set at enrollment; used only for k-anonymised rollups. */
     region: string | null;
+    /** The "before you start" disclosure in the check-in flow is shown once,
+     *  the first time, then never again on this device. */
+    checkinIntroSeen: boolean;
   };
   setUi: (p: Partial<UiSlice['ui']>) => void;
 }
@@ -77,7 +80,7 @@ const consentSlice: StateCreator<AppState, [], [], ConsentSlice> = (set) => ({
 });
 
 const uiSlice: StateCreator<AppState, [], [], UiSlice> = (set) => ({
-  ui: { onboarded: false, language: 'en', checkInLevel: 'gentle', region: import.meta.env.VITE_DEFAULT_REGION ?? 'pune' },
+  ui: { onboarded: false, language: 'en', checkInLevel: 'gentle', region: import.meta.env.VITE_DEFAULT_REGION ?? 'pune', checkinIntroSeen: false },
   setUi: (p) => set((s) => ({ ui: { ...s.ui, ...p } })),
 });
 

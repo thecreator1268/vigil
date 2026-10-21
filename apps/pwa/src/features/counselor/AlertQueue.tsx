@@ -28,7 +28,7 @@ export function AlertQueue() {
     <section aria-labelledby="queue-title" className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 id="queue-title" className="text-2xl font-semibold text-navy-900">Needs attention</h1>
+          <h1 id="queue-title" className="font-serif text-3xl font-semibold text-navy-900">Needs attention</h1>
           <p className="text-sm text-ink-muted">
             Urgent first. Drag a card right or press “Acknowledge” once you've reached out.
           </p>

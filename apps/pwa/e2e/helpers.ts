@@ -11,7 +11,10 @@ export async function skipOnboarding(page: Page) {
 export async function checkIn(page: Page, opts: { answers?: (number | 'skip')[]; text?: string } = {}) {
   const answers = opts.answers ?? [1, 3, 3, 3];
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Check in' }).click();
-  await page.getByRole('button', { name: 'Start' }).click();
+  // The "before you start" disclosure only shows the first time on a device —
+  // skip the click if a prior check-in in this test already passed it.
+  const start = page.getByRole('button', { name: 'Start' });
+  if (await start.isVisible().catch(() => false)) await start.click();
   for (const [i, a] of answers.entries()) {
     await expect(page.getByText(`Question ${i + 1} of ${answers.length}`)).toBeVisible();
     if (a === 'skip') await page.getByRole('button', { name: 'Skip this one' }).click();

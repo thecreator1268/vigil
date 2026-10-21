@@ -62,7 +62,11 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    sourcemap: true,
+    // No sourcemap pipeline exists yet (nothing uploads/consumes them) — they
+    // were previously generated AND shipped inside the production image for
+    // no reason, at ~8.7MB, 81% of dist/assets. Re-enable once something
+    // actually reads them (e.g. uploading to the error-reporter on release).
+    sourcemap: false,
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {

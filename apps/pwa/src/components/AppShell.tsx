@@ -86,11 +86,10 @@ export function Frame({ nav, wide = false, title }: { nav?: ReactNode; wide?: bo
   const { t } = useTranslation();
   return (
     <div className="flex min-h-dvh flex-col">
-      <CrisisBar />
       <DemoBar />
       <header className="border-b border-ice-100 bg-white">
         <div className={`mx-auto flex items-center gap-3 px-4 py-3 ${wide ? 'max-w-6xl' : 'max-w-3xl'}`}>
-          <span className="text-lg font-bold tracking-wide text-navy-900">{t('common.appName')}</span>
+          <span className="font-serif text-lg font-semibold uppercase tracking-[3px] text-navy-900">{t('common.appName')}</span>
           {title}
           <div className="ml-auto flex items-center gap-2">
             <SyncStatusIndicator />
@@ -102,6 +101,8 @@ export function Frame({ nav, wide = false, title }: { nav?: ReactNode; wide?: bo
       <main id="main" className={`mx-auto w-full flex-1 px-4 py-6 ${wide ? 'max-w-6xl' : 'max-w-3xl'}`}>
         <Outlet />
       </main>
+      {/* Pinned to the bottom, above the tab bar — never behind navigation. */}
+      <CrisisBar />
       {nav}
     </div>
   );
