@@ -8,9 +8,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Dates ar
 - **Device-safety layer** (Phase 1, item 1): opt-in App Lock (PIN, off by
   default, salted hash, gates victim routes on open/resume — never on
   `/help`), Quick Wipe (clears this device's local data after a typed
-  confirmation), and a one-time first-run notice on device monitoring and
-  cloud-sync trade-offs, before onboarding. New `/settings` screen reachable
-  from a header icon. Passkey app-lock deferred — see README limitations.
+  confirmation), a one-time first-run notice before onboarding, and a
+  one-time install-time notice on `beforeinstallprompt` — both on device
+  monitoring and cloud-sync trade-offs, both dismissible, neither blocks
+  installing or using the app. New `/settings` screen reachable from a
+  header icon. Passkey app-lock deferred — see README limitations.
+- `wipeDevice()` now audited end to end: clears every Dexie table,
+  localStorage, sessionStorage, every Cache Storage cache, and unregisters
+  the service worker — not just check-in data. Covered by a unit test that
+  seeds every storage mechanism first and asserts each is empty afterwards.
+- `src/test/device-safety-guardrails.test.ts`: a static scan that fails the
+  build if any `<video>`/`<audio>` autoplays, or any exported/downloaded
+  file name would identify the app or its purpose. Enforced, not just
+  documented — it caught a real pre-existing bug (see Fixed, below).
 - Phase 0 tooling: root `CLAUDE.md`, scoped `.claude/rules/`, safety hooks
   (block edits to `secrets/`/`.env*`; scoped lint+typecheck after an edit),
   four skills (`/scoring-change`, `/new-service`, `/a11y-check`, `/release`).
@@ -30,3 +40,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Dates ar
   hardcoded pre-redesign hex colors instead of the design system's tokens.
 - The check-in "before you start" disclosure showed on every check-in
   instead of once per device.
+- `AlertDetail.tsx`'s case-PDF export was named `vigil-<victimId>-<date>.pdf`
+  — it named the app and the victim ID in a file name that could land in a
+  Downloads folder or an email attachment list. Pre-existing, caught by the
+  new guardrail test; renamed to `report-<victimId>-<date>.pdf`.
+- `AppLockGate` locked the app the instant someone turned App Lock on from
+  Settings — for the PIN they had just set, mid-session. Caught by its own
+  test before reaching review; now only locks on the next open/resume.

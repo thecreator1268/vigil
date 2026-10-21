@@ -4,6 +4,7 @@ import { FiEdit3, FiHome, FiLifeBuoy, FiList, FiSettings, FiShield, FiWifiOff } 
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { DemoBar } from '../demo/DemoBar';
 import { CrisisBar } from '../features/crisis/CrisisBar';
+import { InstallPrompt } from '../features/security/InstallPrompt';
 import { setLanguage } from '../i18n';
 import { useStore } from '../store';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
@@ -124,6 +125,7 @@ export function Frame({
           </div>
         </div>
       </header>
+      <InstallPrompt />
       <OfflineNotice />
       <main id="main" className={`mx-auto w-full flex-1 px-4 py-6 ${wide ? 'max-w-6xl' : 'max-w-3xl'}`}>
         <Outlet />

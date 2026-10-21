@@ -79,7 +79,10 @@ export function AlertDetail() {
       pdf.setFontSize(9);
       pdf.text('CONFIDENTIAL — contains sensitive information about a person in care. Do not forward.', 32, 24);
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 32, 36, w, (canvas.height * w) / canvas.width);
-      pdf.save(`vigil-${alert.victimId}-${new Date().toISOString().slice(0, 10)}.pdf`);
+      // Neutral file name on purpose — see .claude/rules/pwa.md. "CONFIDENTIAL"
+      // is stamped inside the PDF itself (above), not in a name that would
+      // show up in a Downloads folder or an email attachment list.
+      pdf.save(`report-${alert.victimId}-${new Date().toISOString().slice(0, 10)}.pdf`);
     } finally {
       setExporting(false);
     }
