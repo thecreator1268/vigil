@@ -18,7 +18,7 @@ export interface SessionSlice {
   signOut: () => void;
 }
 
-export type SyncPhase = 'idle' | 'saved-local' | 'syncing' | 'synced' | 'crisis-pending';
+export type SyncPhase = 'saved-local' | 'syncing' | 'synced' | 'crisis-pending';
 
 export interface SyncSlice {
   sync: {
@@ -61,7 +61,20 @@ export interface UiSlice {
   setUi: (p: Partial<UiSlice['ui']>) => void;
 }
 
-export type AppState = SessionSlice & SyncSlice & ConsentSlice & UiSlice;
+export interface LockSlice {
+  /**
+   * True while the App Lock PIN screen is showing. Ephemeral — never
+   * persisted, always starts false on a fresh load (the PIN screen's own
+   * mount logic, not this flag, decides whether to lock on open/resume).
+   * Other UI (the sync pill) reads this to stay silent while locked, per
+   * the device-safety rule that background sync must not expose anything
+   * through the lock screen.
+   */
+  appLockEngaged: boolean;
+  setAppLockEngaged: (v: boolean) => void;
+}
+
+export type AppState = SessionSlice & SyncSlice & ConsentSlice & UiSlice & LockSlice;
 
 const sessionSlice: StateCreator<AppState, [], [], SessionSlice> = (set) => ({
   session: { role: null, token: null, subject: null, expiresAt: null },
@@ -87,6 +100,11 @@ const consentSlice: StateCreator<AppState, [], [], ConsentSlice> = (set) => ({
   replaceConsent: (consent) => set({ consent }),
 });
 
+const lockSlice: StateCreator<AppState, [], [], LockSlice> = (set) => ({
+  appLockEngaged: false,
+  setAppLockEngaged: (v) => set({ appLockEngaged: v }),
+});
+
 const uiSlice: StateCreator<AppState, [], [], UiSlice> = (set) => ({
   ui: {
     onboarded: false,
@@ -104,7 +122,7 @@ const uiSlice: StateCreator<AppState, [], [], UiSlice> = (set) => ({
 
 export const useStore = create<AppState>()(
   persist(
-    (...a) => ({ ...sessionSlice(...a), ...syncSlice(...a), ...consentSlice(...a), ...uiSlice(...a) }),
+    (...a) => ({ ...sessionSlice(...a), ...syncSlice(...a), ...consentSlice(...a), ...uiSlice(...a), ...lockSlice(...a) }),
     {
       name: 'vigil-app',
       version: 1,
@@ -117,11 +135,15 @@ export const useStore = create<AppState>()(
 
 export const hasConsent = (scope: ConsentScope) => !!useStore.getState().consent[scope]?.granted;
 
-/** The derived label the sync-status indicator shows. */
-export function syncPhase(s: SyncSlice['sync'], justSynced: boolean): SyncPhase {
+/**
+ * The derived label the sync-status pill shows. Exactly three resting/active
+ * states on purpose — "nothing pending yet" and "just delivered" both read
+ * as "Synced"; there is no separate idle state to keep the pill's vocabulary
+ * minimal, per the device-safety brief.
+ */
+export function syncPhase(s: SyncSlice['sync']): SyncPhase {
   if (s.crisisPending > 0) return 'crisis-pending';
   if (s.syncing) return 'syncing';
-  if (justSynced) return 'synced';
   if (s.pending > 0) return 'saved-local';
-  return 'idle';
+  return 'synced';
 }

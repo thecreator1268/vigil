@@ -6,6 +6,7 @@ import { DEFAULT_SCORING_CONFIG, type ScoringConfig } from '@vigil/scoring-engin
 import { api, ensureOk } from '../api/client';
 import { db, tables } from '../db';
 import { useStore } from '../store';
+import { registerBackgroundSync, registerPeriodicSync } from './background-sync';
 import { CrisisFastPath } from './crisis-fast-path';
 import { effectiveConsent, mergeConsentLedger, resolveReminders } from './resolvers';
 import { SyncQueue } from './sync-queue';
@@ -14,8 +15,12 @@ import { createTransport, sendCrisisCheckIn } from './transport';
 const patch = (p: Parameters<ReturnType<typeof useStore.getState>['patchSync']>[0]) => useStore.getState().patchSync(p);
 
 export const syncQueue = new SyncQueue(createTransport(), {
-  onChange: ({ pending, syncing, delivered, lastError }) =>
-    patch({ pending, syncing, lastError, ...(delivered > 0 ? { lastSyncedAt: Date.now() } : {}) }),
+  onChange: ({ pending, syncing, delivered, lastError }) => {
+    patch({ pending, syncing, lastError, ...(delivered > 0 ? { lastSyncedAt: Date.now() } : {}) });
+    // Best-effort wake-up for whenever the tab closes before the item is
+    // delivered. The standard queue only — crisis keeps its own path, below.
+    if (pending > 0) void registerBackgroundSync();
+  },
 });
 
 export const crisisFastPath = new CrisisFastPath(sendCrisisCheckIn, {
@@ -68,6 +73,7 @@ export function startSync(): void {
   window.addEventListener('offline', setOnline);
   syncQueue.start();
   crisisFastPath.start();
+  void registerPeriodicSync(); // no-op unless installed, Chrome, and permitted
   void pullVictimData();
   setInterval(() => void pullVictimData(), 5 * 60_000);
   void Promise.all([syncQueue.pendingCount(), crisisFastPath.pendingCount()]).then(([pending, crisisPending]) =>

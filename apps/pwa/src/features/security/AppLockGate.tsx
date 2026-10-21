@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useLayoutEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../../store';
 import { hashPin } from './pin';
@@ -15,10 +15,21 @@ const COOLDOWN_MS = 30_000;
  * boot the person to a PIN screen for the PIN they just set. Never wraps
  * /help: that route is a sibling in App.tsx, outside this gate, so crisis
  * resources stay reachable even while locked.
+ *
+ * `locked` is mirrored into the store's ephemeral `appLockEngaged` flag via
+ * useLayoutEffect (pre-paint, no flash) so other UI — the sync pill — can
+ * go silent the instant the lock screen shows, without this component
+ * needing to know anything about sync.
  */
 export function AppLockGate({ children }: { children: ReactNode }) {
   const enabled = useStore((s) => s.ui.appLockEnabled);
+  const setAppLockEngaged = useStore((s) => s.setAppLockEngaged);
   const [locked, setLocked] = useState(enabled);
+
+  useLayoutEffect(() => {
+    setAppLockEngaged(locked);
+    return () => setAppLockEngaged(false);
+  }, [locked, setAppLockEngaged]);
 
   useEffect(() => {
     if (!enabled) {

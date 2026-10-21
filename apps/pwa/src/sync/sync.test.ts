@@ -3,7 +3,7 @@ import { db, tables, type SyncQueueItem } from '../db';
 import { HttpStatusError } from '../api/client';
 import { CRISIS_RETRY_MS, CRISIS_TIMEOUT_MS, CrisisFastPath } from './crisis-fast-path';
 import { effectiveConsent, mergeConsentLedger, resolveReminders } from './resolvers';
-import { BASE_DELAY_MS, MAX_DELAY_MS, SyncQueue, backoffMs } from './sync-queue';
+import { BASE_DELAY_MS, MAX_DELAY_MS, SyncQueue, backoffMs, type Transport } from './sync-queue';
 
 let clock = 1_000_000;
 const now = () => clock;
@@ -70,6 +70,41 @@ describe('Sync Queue', () => {
     await q.enqueue('checkin', 'a');
     expect(await tables.syncQueue.count()).toBe(1);
   });
+
+  it('delivers due items in the order they were enqueued (FIFO)', async () => {
+    const sent: string[] = [];
+    const q = new SyncQueue({ send: async (i) => void sent.push(i.refId) }, {}, now);
+    // Enqueued while offline so nothing sends mid-way through — only the
+    // deliberate runOnce() below should flush them, all at once, in order.
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    await q.enqueue('checkin', 'first');
+    await q.enqueue('consent', 'second');
+    await q.enqueue('checkin', 'third');
+    Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+    await q.runOnce();
+    expect(sent).toEqual(['first', 'second', 'third']);
+  });
+
+  it('a retried send always carries the SAME idempotency key (the check-in\'s own id) — a retry can never create a duplicate', async () => {
+    const seenIds: string[] = [];
+    let failFirst = true;
+    const transport: Transport = {
+      send: async (item) => {
+        seenIds.push(item.refId);
+        if (failFirst) {
+          failFirst = false;
+          throw new HttpStatusError(503, 'gateway unavailable');
+        }
+      },
+    };
+    const q = new SyncQueue(transport, {}, now);
+    await q.enqueue('checkin', 'c-stable-id');
+    await q.runOnce(); // fails once
+    clock += backoffMs(1);
+    await q.runOnce(); // retries — must address the exact same id
+    expect(seenIds).toEqual(['c-stable-id', 'c-stable-id']);
+    expect(await tables.syncQueue.count()).toBe(0); // delivered on the retry
+  });
 });
 
 describe('Crisis Fast-Path', () => {
@@ -117,6 +152,21 @@ describe('Crisis Fast-Path', () => {
     expect(Date.now() - started).toBeGreaterThanOrEqual(2_900);
     expect(Date.now() - started).toBeLessThan(5_000);
     expect((await tables.crisisQueue.toArray())[0]?.lastError).toMatch(/aborted/);
+  });
+
+  it('keeps delivering while the standard queue is failing — the two are fully independent', async () => {
+    const standard = new SyncQueue({ send: async () => { throw new HttpStatusError(503, 'gateway unavailable'); } }, {}, now);
+    const crisis = new CrisisFastPath(async () => undefined, {}, now);
+
+    await standard.enqueue('checkin', 'ordinary-1');
+    expect(await standard.runOnce()).toBe(0); // failed, parked for backoff
+    expect(await standard.pendingCount()).toBe(1);
+
+    // Crisis delivery is untouched by the standard queue's failure — it has
+    // its own transport, its own Dexie table, and never waits behind it.
+    expect(await crisis.flag('crisis-1')).toBe(true);
+    expect(await crisis.pendingCount()).toBe(0);
+    expect(await standard.pendingCount()).toBe(1); // still failing, unaffected either way
   });
 });
 

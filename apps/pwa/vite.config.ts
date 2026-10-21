@@ -15,6 +15,13 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: false, // registered explicitly in src/sw-register.ts
+      // Hand-written SW (src/sw.ts), not generateSW: it needs to import and
+      // reuse the real sync/engine.ts (SyncQueue, CrisisFastPath, consent
+      // logic) for the Background Sync / Periodic Background Sync handlers,
+      // not a reimplementation. See src/sw.ts's doc comment.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
         name: 'VIGIL — a quiet place to check in',
@@ -32,24 +39,13 @@ export default defineConfig({
           { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        // Workbox caches the SHELL only. Data sync is the app's own Dexie-backed
-        // Sync Queue (src/sync) — deliberately separate from Workbox.
+      injectManifest: {
+        // Precache the SHELL only — same files generateSW used to glob.
+        // Routing/runtime-caching equivalents to the old `workbox` config
+        // (NetworkOnly for /v1//auth/, StaleWhileRevalidate for static
+        // assets) are hand-written in src/sw.ts, next to the Background
+        // Sync handlers they now share a file with.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,json}'],
-        navigateFallback: `${BASE}index.html`,
-        navigateFallbackDenylist: [/^\/v1\//, /^\/auth\//],
-        runtimeCaching: [
-          {
-            // Never serve stale alert (or any API) data as current.
-            urlPattern: ({ url }) => url.pathname.startsWith('/v1/') || url.pathname.startsWith('/auth/'),
-            handler: 'NetworkOnly',
-          },
-          {
-            urlPattern: ({ request }) => ['style', 'script', 'image', 'font'].includes(request.destination),
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'vigil-static' },
-          },
-        ],
       },
     }),
   ],

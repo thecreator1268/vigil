@@ -39,10 +39,17 @@ describe('sync status indicator', () => {
     expect(await screen.findByText('Saved on this device')).toBeInTheDocument();
     useStore.setState((s) => ({ sync: { ...s.sync, syncing: true } }));
     rerender(<SyncStatusIndicator />);
-    expect(await screen.findByText('Syncing…')).toBeInTheDocument();
+    expect(await screen.findByText('Syncing quietly…')).toBeInTheDocument();
     useStore.setState((s) => ({ sync: { ...s.sync, crisisPending: 1 } }));
     rerender(<SyncStatusIndicator />);
     expect(await screen.findByText(/Sending to your counselor/)).toBeInTheDocument();
+  });
+
+  it('goes silent while App Lock is engaged — background sync must never show through the lock screen', () => {
+    useStore.setState((s) => ({ sync: { ...s.sync, pending: 2 }, appLockEngaged: true }));
+    render(<SyncStatusIndicator />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    useStore.setState({ appLockEngaged: false });
   });
 });
 

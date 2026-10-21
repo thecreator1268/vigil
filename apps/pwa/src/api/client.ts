@@ -28,7 +28,10 @@ const auth: Middleware = {
   },
 };
 
-export const api = createClient<paths>({ baseUrl: typeof window === 'undefined' ? 'http://localhost' : window.location.origin });
+// `self` is the global in every context this runs in — Window, and (for the
+// background-sync worker, sw.ts) ServiceWorkerGlobalScope — unlike `window`,
+// which only exists in the former. Same origin either way.
+export const api = createClient<paths>({ baseUrl: typeof self !== 'undefined' ? self.location.origin : 'http://localhost' });
 api.use(auth);
 
 /** Throw an HttpStatusError for non-2xx so queue logic can classify failures. */

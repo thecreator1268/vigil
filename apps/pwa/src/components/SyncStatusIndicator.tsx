@@ -1,34 +1,28 @@
 import { useMotion } from '@vigil/design-system';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore, syncPhase, type SyncPhase } from '../store';
 
-const HOLD_SYNCED_MS = 2_000;
-
 /**
  * Cross-fades: "saved locally" (ice dot) → "syncing" (navy pulse, 1.5s, not a
- * spin) → "synced" (checkmark, holds 2s). The ONLY element in the app allowed
+ * spin) → "synced" (checkmark). The ONLY element in the app allowed
  * continuous animation, and only while actively syncing. Crisis delivery is
- * surfaced distinctly.
+ * surfaced distinctly. Exactly three states, by design — see store/index.ts.
+ *
+ * Hidden entirely while App Lock is engaged: background sync must never
+ * expose activity through the lock screen (device-safety rule).
  */
 export function SyncStatusIndicator() {
   const { t } = useTranslation();
   const sync = useStore((s) => s.sync);
+  const appLockEngaged = useStore((s) => s.appLockEngaged);
   const reduced = useReducedMotion();
   const fade = useMotion('quick');
-  const [justSynced, setJustSynced] = useState(false);
 
-  useEffect(() => {
-    if (!sync.lastSyncedAt) return;
-    setJustSynced(true);
-    const id = setTimeout(() => setJustSynced(false), HOLD_SYNCED_MS);
-    return () => clearTimeout(id);
-  }, [sync.lastSyncedAt]);
+  if (appLockEngaged) return null;
 
-  const phase: SyncPhase = syncPhase(sync, justSynced);
+  const phase: SyncPhase = syncPhase(sync);
   const label = {
-    idle: t('sync.idle'),
     'saved-local': t('sync.savedLocal'),
     syncing: t('sync.syncing'),
     synced: t('sync.synced'),
@@ -58,7 +52,7 @@ export function SyncStatusIndicator() {
 }
 
 function Glyph({ phase, reduced }: { phase: SyncPhase; reduced: boolean }) {
-  if (phase === 'synced' || phase === 'idle') {
+  if (phase === 'synced') {
     return (
       <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
         <motion.path
@@ -68,7 +62,7 @@ function Glyph({ phase, reduced }: { phase: SyncPhase; reduced: boolean }) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          initial={{ pathLength: phase === 'synced' ? 0 : 1 }}
+          initial={{ pathLength: 0 }}
           animate={{ pathLength: 1 }}
           transition={{ duration: reduced ? 0.01 : 0.28 }}
         />

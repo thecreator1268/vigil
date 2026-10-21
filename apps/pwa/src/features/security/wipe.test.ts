@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { tables } from '../../db';
 import type { StoredCheckIn } from '../../db';
+import { PERIODIC_SYNC_TAG } from '../../sync/background-sync';
 import { wipeDevice } from './wipe';
 
 afterEach(() => {
@@ -33,9 +34,12 @@ describe('wipeDevice', () => {
       }),
     });
     const unregister = vi.fn().mockResolvedValue(true);
+    const periodicSyncUnregister = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', {
       ...navigator,
-      serviceWorker: { getRegistrations: vi.fn().mockResolvedValue([{ unregister }]) },
+      serviceWorker: {
+        getRegistrations: vi.fn().mockResolvedValue([{ unregister, periodicSync: { unregister: periodicSyncUnregister } }]),
+      },
     });
 
     const reload = vi.fn();
@@ -47,7 +51,15 @@ describe('wipeDevice', () => {
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
     expect(deletedCaches.sort()).toEqual(['vigil-static', 'workbox-precache-v2']);
+    expect(periodicSyncUnregister).toHaveBeenCalledWith(PERIODIC_SYNC_TAG);
     expect(unregister).toHaveBeenCalledTimes(1);
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves periodic sync alone when the registration never had it (most browsers)', async () => {
+    const unregister = vi.fn().mockResolvedValue(true);
+    vi.stubGlobal('navigator', { ...navigator, serviceWorker: { getRegistrations: vi.fn().mockResolvedValue([{ unregister }]) } });
+    await wipeDevice({ reload: vi.fn() });
+    expect(unregister).toHaveBeenCalledTimes(1); // no throw from the missing periodicSync property
   });
 });

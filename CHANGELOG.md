@@ -5,6 +5,26 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Dates ar
 ## Unreleased
 
 ### Added
+- **Background Sync** (Phase 1, item 2): the standard check-in queue
+  registers a one-off Background Sync tag whenever work is pending; an
+  installed, permitted Chrome PWA also registers Periodic Background Sync.
+  Both are feature-detected independently and are a best-effort addition on
+  top of the existing, unconditional sync-on-open and sync-on-`online`
+  paths — not a replacement for them. The crisis fast-path never uses
+  either API, keeping its own fixed 15s-while-open retry regardless of
+  browser support, exactly as before. The service worker switched from
+  Workbox's `generateSW` to a hand-written `src/sw.ts` (`injectManifest`)
+  specifically so its `sync`/`periodicsync` handlers reuse the real
+  `SyncQueue`/`CrisisFastPath`/consent logic — see README limitations for
+  what this does and doesn't let us verify without a real phone.
+- Sync pill simplified to exactly three states — Saved on this device /
+  Syncing quietly / Synced — and now goes silent entirely while App Lock is
+  engaged (new ephemeral, never-persisted `appLockEngaged` store flag).
+- Unit tests for queue FIFO ordering, idempotent retries (a retried send
+  always carries the check-in's own id — confirmed end to end against
+  checkin-service's `ON CONFLICT (id) DO NOTHING`), and crisis/standard
+  queue independence under failure; an e2e test confirming Background Sync
+  registration against Chromium's real `SyncManager`, not a mock.
 - **Device-safety layer** (Phase 1, item 1): opt-in App Lock (PIN, off by
   default, salted hash, gates victim routes on open/resume — never on
   `/help`), Quick Wipe (clears this device's local data after a typed

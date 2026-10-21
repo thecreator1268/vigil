@@ -1,4 +1,5 @@
 import { tables } from '../../db';
+import { unregisterPeriodicSync } from '../../sync/background-sync';
 
 export interface WipeDeviceOptions {
   /** Injected for tests; defaults to a full reload back to the app root. */
@@ -21,6 +22,11 @@ export interface WipeDeviceOptions {
  *    none of them behind.
  *  - The service worker registration itself, so nothing keeps running
  *    in the background after the page reloads.
+ *  - Any registered Periodic Background Sync tag. One-off Background Sync
+ *    has no unregister method in the spec — see
+ *    sync/background-sync.ts's unregisterPeriodicSync() doc comment for
+ *    why "cancel" there means the queue it would flush is already empty,
+ *    not a literal cancellation call.
  *
  * Cookies are deliberately not touched: this app never sets one (see
  * api/client.ts — the gateway is authenticated with a Bearer header).
@@ -57,6 +63,7 @@ export async function wipeDevice({ reload = defaultReload }: WipeDeviceOptions =
 
   if ('serviceWorker' in navigator) {
     const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((r) => unregisterPeriodicSync(r)));
     await Promise.all(registrations.map((r) => r.unregister()));
   }
 

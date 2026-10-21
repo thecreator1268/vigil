@@ -56,9 +56,8 @@
     "flaggedMore": "If you want to talk to someone right now, these lines are open:"
   },
   "sync": {
-    "idle": "All caught up",
     "savedLocal": "Saved on this device",
-    "syncing": "Syncing…",
+    "syncing": "Syncing quietly…",
     "synced": "Synced",
     "crisisPending": "Sending to your counselor — will keep trying",
     "label": "Sync status: {{status}}"
