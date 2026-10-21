@@ -1,0 +1,371 @@
+<!-- @dsCard group="Screens" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIGIL — CheckIn</title>
+<link rel="stylesheet" href="../../assets/fonts.css" />
+<link rel="stylesheet" href="../../assets/tokens.css" />
+<link rel="stylesheet" href="../../assets/base.css" />
+<style>
+  .screen { padding: var(--space-6) var(--space-4) var(--space-5); display: flex; flex-direction: column; gap: var(--space-5); min-height: 100%; }
+  .wordmark-row { display: flex; align-items: center; justify-content: space-between; }
+  .wordmark { font: 600 16px/1 var(--font-serif); letter-spacing: 3px; text-transform: uppercase; }
+
+  /* ---- home ---- */
+  #screenHome .greeting { margin-bottom: 0; }
+  #screenHome .lead { margin: var(--space-2) 0 var(--space-5); }
+  .week-row { display: flex; justify-content: space-between; gap: var(--space-2); margin: var(--space-2) 0; }
+  .week-day { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); opacity: 0; }
+  .week-day.show { animation: vg-fade-rise-sm var(--t-base) var(--ease-out-arrival) both; }
+  .week-day .dot {
+    width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--border);
+  }
+  .week-day.done .dot { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+  .week-day.today .dot { border-color: var(--ice-strong); border-width: 2px; }
+  .week-day .dot svg { width: 16px; height: 16px; }
+  .status-line { display: flex; align-items: center; gap: var(--space-3); }
+
+  /* ---- check-in flow ---- */
+  .progress { display: flex; gap: var(--space-2); margin-bottom: var(--space-5); }
+  .progress__seg { flex: 1; height: 6px; border-radius: var(--radius-pill); background: var(--border); overflow: hidden; }
+  .progress__seg.done span { display: block; height: 100%; background: var(--primary); width: 100%; transition: width var(--t-base) var(--ease-out-arrival); }
+
+  .qcard { position: relative; min-height: 340px; }
+  .qcard__lead { margin-bottom: var(--space-4); }
+  .question { position: absolute; inset: 0; }
+  .question.enter-right { animation: vg-slide-in-right var(--t-base) var(--ease-in-place) both; }
+  .question.enter-left { animation: vg-slide-in-left var(--t-base) var(--ease-in-place) both; }
+
+  .option {
+    position: relative; display: flex; align-items: center; gap: var(--space-3);
+    width: 100%; min-height: var(--touch-min); padding: 0 var(--space-4);
+    border: 2px solid var(--border-strong); border-radius: var(--radius-md); margin-bottom: var(--space-3);
+    background: var(--canvas); overflow: hidden; text-align: left;
+  }
+  .option__fill { position: absolute; inset: 0; background: var(--ice); transform: scaleX(0); transform-origin: left; transition: transform var(--t-quick) var(--ease-out-arrival); z-index: 0; }
+  .option.selected .option__fill { transform: scaleX(1); }
+  .option.selected { border-color: var(--ice-strong); }
+  .option__label { position: relative; z-index: 1; flex: 1; }
+  .option__radio {
+    position: relative; z-index: 1; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border-strong);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .option__radio::after { content: ''; width: 0; height: 0; border-radius: 50%; background: var(--primary); transition: width var(--t-quick) var(--ease-out-arrival), height var(--t-quick) var(--ease-out-arrival); }
+  .option.selected .option__radio::after { width: 12px; height: 12px; }
+  .option.selected .option__radio { border-color: var(--primary); }
+
+  .skip-link { display: inline-block; margin-top: var(--space-1); color: var(--ink-muted); text-decoration: underline; min-height: var(--touch-min); display: flex; align-items: center; }
+  .nudge { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--ice); color: var(--on-ice); border-radius: var(--radius-md); opacity: 0; max-height: 0; overflow: hidden; }
+  .nudge.show { opacity: 1; max-height: 120px; animation: vg-fade-rise-sm var(--t-base) var(--ease-out-arrival) both; }
+
+  .qnav { display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-5); }
+  .qnav button[disabled] { visibility: hidden; }
+
+  /* ---- summary / submit ---- */
+  .submit-summary { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-5); overflow: hidden; }
+  .submit-summary .row { display: flex; justify-content: space-between; font: var(--text-caption); padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+  .submit-summary.collapsed .row { animation: vg-collapse var(--t-base) var(--ease-in-place) forwards; }
+  .submit-btn { width: 100%; transition: width var(--t-calm) var(--ease-in-place), border-radius var(--t-calm) var(--ease-in-place); position: relative; }
+  .submit-btn.is-circle { width: 56px; padding: 0; margin-inline: auto; }
+  .submit-btn svg.check { width: 24px; height: 24px; display: none; }
+  .submit-btn svg.check path { stroke-dasharray: 36; stroke-dashoffset: 36; }
+  .submit-btn.is-done svg.check { display: block; }
+  .submit-btn.is-done .submit-btn__label { display: none; }
+  .submit-btn.is-done svg.check path { animation: vg-check-draw var(--t-slow) var(--ease-out-arrival) forwards; }
+  .submit-halo { position: absolute; inset: 0; margin: auto; width: 56px; height: 56px; border-radius: 50%; pointer-events: none; }
+  .submit-btn.is-done .submit-halo { animation: vg-ice-halo var(--t-slow) var(--ease-out-arrival) forwards; }
+  .submit-confirm { text-align: center; margin-top: var(--space-5); opacity: 0; }
+  .submit-confirm.show { animation: vg-fade-rise var(--t-base) var(--ease-out-arrival) both; }
+  .submit-confirm .ic { margin: 0 auto var(--space-3); }
+
+  #screenCheckin, #screenSaved { display: none; }
+  .phone[data-screen="checkin"] #screenHome, .phone[data-screen="saved"] #screenHome { display: none; }
+  .phone[data-screen="checkin"] #screenCheckin { display: flex; }
+  .phone[data-screen="saved"] #screenSaved { display: flex; }
+
+  .dev-note { max-width: 300px; }
+</style>
+</head>
+<body>
+  <div class="devbar">
+    <button id="motionBtn" aria-pressed="false"></button>
+    <button id="themeBtn" aria-pressed="false"></button>
+  </div>
+
+  <div class="stage">
+    <div>
+      <div class="phone" id="phone" data-screen="home">
+        <div class="phone__scroll">
+
+          <div class="screen" id="screenHome">
+            <div class="wordmark-row">
+              <span class="wordmark">VIGIL</span>
+              <div id="syncPillHost"></div>
+            </div>
+            <h1 class="t-display greeting vg-animate-in" style="animation-delay:0ms">Hello. How are you doing today?</h1>
+            <p class="t-body-lg ink-muted lead vg-animate-in" style="animation-delay:70ms">Checking in takes about a minute. Skip anything you like.</p>
+            <button class="btn btn--primary btn--block vg-animate-in" style="animation-delay:140ms" id="goCheckin">Check in</button>
+            <div>
+              <p class="t-label vg-animate-in" style="animation-delay:210ms">This week</p>
+              <div class="week-row" id="weekRow"></div>
+            </div>
+            <p class="t-caption status-line vg-animate-in" style="animation-delay:280ms" id="statusLine"></p>
+          </div>
+
+          <div class="screen" id="screenCheckin">
+            <div class="progress" id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="0"></div>
+            <div class="qcard" id="qcard"></div>
+          </div>
+
+          <div class="screen" id="screenSaved">
+            <div style="margin: auto; text-align:center;">
+              <span class="ic ic--88 ic--primary" id="savedIcon" style="margin-bottom:var(--space-5)"></span>
+              <p class="t-title">Saved on this device</p>
+              <p class="t-body ink-muted" style="margin-top:var(--space-3)">Nothing has left your phone.</p>
+            </div>
+          </div>
+
+        </div>
+        <div class="crisis-bar" id="crisisBar">
+          <span class="crisis-bar__title">Need help right now?</span>
+          <div class="crisis-bar__actions">
+            <a class="btn btn--ice-strong btn--pill" href="tel:18005990019" onclick="return false">
+              <span id="kiranIcon"></span> KIRAN
+            </a>
+            <a class="btn btn--coral btn--pill" href="tel:112" onclick="return false">
+              <span id="callIcon"></span> 112
+            </a>
+          </div>
+        </div>
+      </div>
+      <p class="label-caption">A phone-width preview — not the full viewport.</p>
+    </div>
+
+    <div class="dev-note t-body ink-muted">
+      <p class="t-label" style="color:var(--ink); margin-bottom:var(--space-2)">Try it</p>
+      <p>Tap <b>Check in</b>, answer or skip each question, and answer "Not really" to the last one to see the crisis bar ring once. The progress segments fill by what's answered — never by time.</p>
+    </div>
+  </div>
+
+  <script src="../../assets/icons.js"></script>
+  <script>
+    const phone = document.getElementById('phone');
+    document.getElementById('kiranIcon').appendChild(vgIconEl('phone', 16));
+    document.getElementById('callIcon').appendChild(vgIconEl('phone', 16));
+
+    // ---- sync pill (header) ----
+    function syncPill() {
+      const pill = document.createElement('div');
+      pill.className = 'pill';
+      pill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:var(--panel);border:1px solid var(--border);';
+      const ic = document.createElement('span'); ic.className = 'ic ic--28 ic--ice'; ic.appendChild(vgIconEl('device', 14));
+      const text = document.createElement('span'); text.className = 't-caption'; text.textContent = 'Saved on this device';
+      pill.append(ic, text);
+      return pill;
+    }
+    document.getElementById('syncPillHost').appendChild(syncPill());
+
+    // ---- week indicator ----
+    const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    let doneToday = false;
+    function renderWeek() {
+      const row = document.getElementById('weekRow');
+      row.innerHTML = '';
+      DAYS.forEach((d, i) => {
+        const done = i < 4 || (i === 4 && doneToday); // Mon–Thu already checked in, Friday = "today"
+        const isToday = i === 4;
+        const el = document.createElement('div');
+        el.className = 'week-day' + (done ? ' done' : '') + (isToday ? ' today' : '');
+        el.style.animationDelay = (i * 70) + 'ms';
+        const dot = document.createElement('span');
+        dot.className = 'dot';
+        if (done) dot.appendChild(vgIconEl('check', 16)); else dot.textContent = '';
+        el.append(dot, Object.assign(document.createElement('span'), { className: 't-caption', textContent: d }));
+        row.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show'));
+      });
+      document.getElementById('statusLine').textContent = doneToday ? 'Checked in today.' : 'Last check-in: yesterday.';
+    }
+    renderWeek();
+
+    // ---- check-in flow ----
+    const QUESTIONS = [
+      { q: 'How have you been resting or sleeping?', opts: ['Well', 'Okay', 'Poorly'] },
+      { q: 'Over the last few days, how heavy have things felt?', opts: ['Not at all', 'A little', 'Quite a bit'] },
+      { q: 'Have you felt like doing the things you usually enjoy?', opts: ['Mostly', 'Sometimes', 'Not really'] },
+      { q: 'Do you feel safe where you are right now?', opts: ['Yes, I do', 'Somewhat', 'Not really'], safety: true },
+    ];
+    let answers = [];
+    let qIndex = 0;
+    let direction = 'right';
+    let crisisTimer = null;
+
+    function startCheckin() {
+      answers = [];
+      qIndex = 0;
+      direction = 'right';
+      phone.dataset.screen = 'checkin';
+      renderProgress();
+      renderQuestion();
+    }
+    function renderProgress() {
+      const p = document.getElementById('progress');
+      p.innerHTML = '';
+      p.setAttribute('aria-valuenow', String(answers.filter(a => a !== undefined).length));
+      p.setAttribute('aria-valuetext', `${answers.filter(a => a !== undefined).length} of 4 answered`);
+      for (let i = 0; i < 4; i++) {
+        const seg = document.createElement('span');
+        seg.className = 'progress__seg' + (answers[i] !== undefined ? ' done' : '');
+        seg.innerHTML = '<span></span>';
+        p.appendChild(seg);
+      }
+    }
+    function renderQuestion() {
+      if (qIndex >= QUESTIONS.length) { renderSubmitStep(); return; }
+      const data = QUESTIONS[qIndex];
+      const qcard = document.getElementById('qcard');
+      qcard.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'question card ' + (direction === 'right' ? 'enter-right' : 'enter-left');
+      let lead = '';
+      if (qIndex === 0) lead = '<p class="t-body ink-muted qcard__lead">Take a minute for yourself. Skip anything you like.</p>';
+      wrap.innerHTML = `${lead}<h2 class="t-title" style="margin-bottom:var(--space-4)">${data.q}</h2>`;
+      data.opts.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'option' + (answers[qIndex] === opt ? ' selected' : '');
+        btn.innerHTML = `<span class="option__fill"></span><span class="option__label t-label">${opt}</span><span class="option__radio"></span>`;
+        btn.addEventListener('click', () => selectAnswer(opt));
+        wrap.appendChild(btn);
+      });
+      const skip = document.createElement('button');
+      skip.type = 'button';
+      skip.className = 'skip-link t-body';
+      skip.textContent = 'Skip this one';
+      skip.addEventListener('click', () => { answers[qIndex] = null; advance(); });
+      wrap.appendChild(skip);
+
+      if (data.safety) {
+        const nudge = document.createElement('div');
+        nudge.className = 'nudge' + (answers[qIndex] === 'Not really' ? ' show' : '');
+        nudge.id = 'safetyNudge';
+        nudge.innerHTML = '<p class="t-body">That sounds hard. Help is at the bottom of this screen, any time you need it.</p>';
+        wrap.appendChild(nudge);
+      }
+
+      const nav = document.createElement('div');
+      nav.className = 'qnav';
+      const back = document.createElement('button');
+      back.type = 'button'; back.className = 'btn btn--ghost'; back.textContent = 'Back';
+      back.disabled = qIndex === 0;
+      back.addEventListener('click', goBack);
+      const next = document.createElement('button');
+      next.type = 'button'; next.className = 'btn btn--outline';
+      next.textContent = qIndex === QUESTIONS.length - 1 ? 'Continue' : 'Next';
+      next.style.visibility = answers[qIndex] !== undefined && answers[qIndex] !== null ? 'visible' : 'hidden';
+      next.id = 'nextBtn';
+      next.addEventListener('click', advance);
+      nav.append(back, next);
+      wrap.appendChild(nav);
+
+      qcard.appendChild(wrap);
+      renderProgress();
+    }
+    function selectAnswer(opt) {
+      answers[qIndex] = opt;
+      renderQuestion();
+      if (QUESTIONS[qIndex].safety && opt === 'Not really') ringCrisisBar();
+    }
+    function advance() {
+      direction = 'right';
+      qIndex++;
+      renderQuestion();
+    }
+    function goBack() {
+      direction = 'left';
+      qIndex = Math.max(0, qIndex - 1);
+      renderQuestion();
+    }
+    function ringCrisisBar() {
+      const bar = document.getElementById('crisisBar');
+      bar.classList.remove('is-ringing');
+      void bar.offsetWidth;
+      bar.classList.add('is-ringing');
+      clearTimeout(crisisTimer);
+      crisisTimer = setTimeout(() => bar.classList.remove('is-ringing'), msVar('--t-slow') + 50);
+    }
+
+    function renderSubmitStep() {
+      const qcard = document.getElementById('qcard');
+      qcard.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'question enter-right';
+      const rows = QUESTIONS.map((q, i) => `<div class="row"><span>${q.q.split('?')[0]}</span><span>${answers[i] ?? 'Skipped'}</span></div>`).join('');
+      wrap.innerHTML = `
+        <h2 class="t-title" style="margin-bottom:var(--space-4)">You're nearly done</h2>
+        <div class="submit-summary" id="submitSummary">${rows}</div>
+        <button class="btn btn--primary submit-btn" id="submitBtn" type="button">
+          <span class="submit-btn__label">Save my check-in</span>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <span class="submit-halo" aria-hidden="true"></span>
+        </button>`;
+      qcard.appendChild(wrap);
+      document.getElementById('submitBtn').addEventListener('click', runSubmit);
+    }
+    function msVar(name) {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v.endsWith('ms') ? parseFloat(v) : parseFloat(v) * 1000;
+    }
+    function runSubmit() {
+      const btn = document.getElementById('submitBtn');
+      const summary = document.getElementById('submitSummary');
+      const calm = msVar('--t-calm'), slow = msVar('--t-slow'), base = msVar('--t-base');
+      btn.classList.add('is-circle');
+      setTimeout(() => btn.classList.add('is-done'), calm);
+      setTimeout(() => summary.classList.add('collapsed'), calm + slow * 0.5);
+      setTimeout(() => {
+        phone.dataset.screen = 'saved';
+        document.getElementById('savedIcon').innerHTML = '';
+        document.getElementById('savedIcon').appendChild(vgIconEl('check', 44));
+        doneToday = true;
+      }, calm + slow * 0.5 + base);
+      setTimeout(() => { phone.dataset.screen = 'home'; renderWeek(); }, calm + slow * 0.5 + base + 2200);
+    }
+
+    document.getElementById('goCheckin').addEventListener('click', startCheckin);
+
+    // ---- toggles ----
+    const root = document.documentElement;
+    let motionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const motionBtn = document.getElementById('motionBtn');
+    function paintMotionBtn() {
+      motionBtn.setAttribute('aria-pressed', String(motionReduced));
+      motionBtn.innerHTML = '';
+      motionBtn.appendChild(vgIconEl('clock', 16));
+      motionBtn.append(motionReduced ? ' Reduced motion' : ' Full motion');
+      document.body.style.setProperty('--force-reduced', motionReduced ? '1' : '0');
+      if (motionReduced) { document.documentElement.style.setProperty('--t-quick','1ms'); document.documentElement.style.setProperty('--t-base','1ms'); document.documentElement.style.setProperty('--t-calm','1ms'); document.documentElement.style.setProperty('--t-slow','1ms'); }
+      else { ['--t-quick','--t-base','--t-calm','--t-slow'].forEach(p => document.documentElement.style.removeProperty(p)); }
+    }
+    motionBtn.addEventListener('click', () => { motionReduced = !motionReduced; paintMotionBtn(); });
+    paintMotionBtn();
+
+    const themeBtn = document.getElementById('themeBtn');
+    function paintThemeBtn() {
+      const dark = root.getAttribute('data-theme') === 'dark';
+      themeBtn.setAttribute('aria-pressed', String(dark));
+      themeBtn.innerHTML = '';
+      themeBtn.appendChild(vgIconEl('moon', 16));
+      themeBtn.append(dark ? ' Dark' : ' Light');
+    }
+    themeBtn.addEventListener('click', () => {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      paintThemeBtn();
+    });
+    paintThemeBtn();
+  </script>
+</body>
+</html>

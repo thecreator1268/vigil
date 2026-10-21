@@ -1,0 +1,150 @@
+<!-- @dsCard group="Foundations" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIGIL — IconCircle</title>
+<link rel="stylesheet" href="../../assets/fonts.css" />
+<link rel="stylesheet" href="../../assets/tokens.css" />
+<link rel="stylesheet" href="../../assets/base.css" />
+<style>
+  body { background: var(--canvas); padding: var(--space-7) var(--space-5) var(--space-7); }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  .intro { max-width: 620px; margin-bottom: var(--space-7); }
+  .intro h1 { margin-bottom: var(--space-3); }
+  section { margin-bottom: var(--space-7); }
+  section h2 { margin-bottom: var(--space-4); }
+  .row { display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .row .unit { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+  .row .unit span.t-caption { text-align: center; }
+  .tone-row { display: flex; gap: var(--space-6); flex-wrap: wrap; margin-bottom: var(--space-5); }
+  .tone-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--space-5);
+  }
+  .grid .unit { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+  .tone-select { display: flex; gap: var(--space-2); margin-bottom: var(--space-5); flex-wrap: wrap; }
+  .tone-select button {
+    padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill);
+    border: 1px solid var(--border-strong); font: var(--text-label);
+  }
+  .tone-select button[aria-pressed="true"] { background: var(--ink); color: var(--canvas); border-color: var(--ink); }
+</style>
+</head>
+<body>
+  <div class="devbar"><button id="themeBtn" aria-pressed="false"></button></div>
+  <div class="wrap">
+    <div class="intro vg-animate-in">
+      <h1 class="t-title">IconCircle</h1>
+      <p class="t-body ink-muted">One motif, everywhere: an icon inside a soft tinted circle. Color and icon choice support a label — they never stand in for one.</p>
+    </div>
+
+    <section>
+      <h2 class="t-heading">Tones</h2>
+      <div class="tone-row" id="tones"></div>
+    </section>
+
+    <section>
+      <h2 class="t-heading">Sizes</h2>
+      <p class="t-caption" style="margin-bottom:var(--space-4)">28 · 32 · 48 · 64 · 88px — icon always at 50% of the circle's diameter.</p>
+      <div class="row" id="sizes"></div>
+    </section>
+
+    <section>
+      <h2 class="t-heading">Starter icon set</h2>
+      <div class="tone-select" id="toneSelect" role="group" aria-label="Preview tone"></div>
+      <div class="grid" id="iconGrid"></div>
+    </section>
+  </div>
+
+  <script src="../../assets/icons.js"></script>
+  <script>
+    const TONES = [
+      { key: 'ice', label: 'ice', desc: 'Default — the resting, everyday tone' },
+      { key: 'ice-strong', label: 'ice-strong', desc: 'Tier-2 emphasis, pressed states' },
+      { key: 'primary', label: 'primary', desc: 'Done, selected, "on"' },
+      { key: 'coral', label: 'coral', desc: 'Urgent only — never decorative' },
+    ];
+    const ICONS = ['phone','device','lock','cloud','sync','check','mic','text','tap','moon','trend','users','eye','bell','shield','alert','clock'];
+
+    const tonesEl = document.getElementById('tones');
+    TONES.forEach(t => {
+      const card = document.createElement('div');
+      card.className = 'tone-card';
+      const circle = document.createElement('span');
+      circle.className = `ic ic--64 ic--${t.key}`;
+      circle.appendChild(vgIconEl('bell', 32));
+      card.appendChild(circle);
+      const label = document.createElement('div');
+      label.innerHTML = `<span class="t-label">${t.label}</span><br><span class="t-caption">${t.desc}</span>`;
+      card.appendChild(label);
+      tonesEl.appendChild(card);
+    });
+
+    const sizesEl = document.getElementById('sizes');
+    [28, 32, 48, 64, 88].forEach(sz => {
+      const unit = document.createElement('div');
+      unit.className = 'unit';
+      const circle = document.createElement('span');
+      circle.className = `ic ic--${sz} ic--ice`;
+      circle.appendChild(vgIconEl('trend', sz / 2));
+      unit.appendChild(circle);
+      const cap = document.createElement('span');
+      cap.className = 't-caption';
+      cap.textContent = sz + 'px';
+      unit.appendChild(cap);
+      sizesEl.appendChild(unit);
+    });
+
+    let activeTone = 'ice';
+    const toneSelectEl = document.getElementById('toneSelect');
+    const gridEl = document.getElementById('iconGrid');
+
+    function renderGrid() {
+      gridEl.innerHTML = '';
+      ICONS.forEach(name => {
+        const unit = document.createElement('div');
+        unit.className = 'unit';
+        const circle = document.createElement('span');
+        circle.className = `ic ic--48 ic--${activeTone}`;
+        circle.appendChild(vgIconEl(name, 24));
+        unit.appendChild(circle);
+        const cap = document.createElement('span');
+        cap.className = 't-caption';
+        cap.textContent = name;
+        unit.appendChild(cap);
+        gridEl.appendChild(unit);
+      });
+    }
+    TONES.forEach(t => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = t.key;
+      b.setAttribute('aria-pressed', String(t.key === activeTone));
+      b.addEventListener('click', () => {
+        activeTone = t.key;
+        [...toneSelectEl.children].forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+        renderGrid();
+      });
+      toneSelectEl.appendChild(b);
+    });
+    renderGrid();
+
+    const root = document.documentElement;
+    const themeBtn = document.getElementById('themeBtn');
+    function paintThemeBtn() {
+      const dark = root.getAttribute('data-theme') === 'dark';
+      themeBtn.setAttribute('aria-pressed', String(dark));
+      themeBtn.innerHTML = '';
+      themeBtn.appendChild(vgIconEl('moon', 16));
+      themeBtn.append(dark ? ' Dark' : ' Light');
+    }
+    themeBtn.addEventListener('click', () => {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      paintThemeBtn();
+    });
+    paintThemeBtn();
+  </script>
+</body>
+</html>

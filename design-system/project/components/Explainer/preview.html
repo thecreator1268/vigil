@@ -1,0 +1,183 @@
+<!-- @dsCard group="Screens" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIGIL — Explainer</title>
+<link rel="stylesheet" href="../../assets/fonts.css" />
+<link rel="stylesheet" href="../../assets/tokens.css" />
+<link rel="stylesheet" href="../../assets/base.css" />
+<style>
+  .screen { padding: var(--space-6) var(--space-5) var(--space-5); display: flex; flex-direction: column; min-height: 100%; }
+  .top-row { display: flex; justify-content: flex-end; margin-bottom: var(--space-4); }
+  .diagram { height: 190px; display: flex; align-items: center; justify-content: center; gap: var(--space-4); margin-bottom: var(--space-6); position: relative; }
+  .diagram .ic { opacity: 0; }
+  .diagram.animate .ic { animation: vg-fade-rise var(--t-calm) var(--ease-out-arrival) both; }
+  .diagram__arrow { width: 36px; height: 2px; background: var(--border-strong); position: relative; opacity: 0; }
+  .diagram__arrow.animate { animation: vg-fade-rise var(--t-calm) var(--ease-out-arrival) both; animation-delay: 260ms; }
+  .diagram__arrow::after { content: ''; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left-color: var(--border-strong); }
+
+  .step-body { flex: 1; }
+  .step-body h2 { margin-bottom: var(--space-3); }
+  .step-body p { margin-top: var(--space-2); }
+
+  .dots { display: flex; justify-content: center; gap: var(--space-2); margin: var(--space-5) 0; }
+  .dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); opacity: .4; }
+  .dots span.active { opacity: 1; background: var(--primary); }
+
+  .step-nav { display: flex; justify-content: space-between; align-items: center; }
+  .step-nav .btn[disabled] { visibility: hidden; }
+  .skip-link { color: var(--ink-muted); text-decoration: underline; min-height: 44px; display: flex; align-items: center; }
+
+  .done-screen { margin: auto; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="devbar">
+    <button id="motionBtn" aria-pressed="false"></button>
+    <button id="themeBtn" aria-pressed="false"></button>
+  </div>
+  <div class="stage">
+    <div>
+      <div class="phone" id="phone">
+        <div class="phone__scroll">
+          <div class="screen" id="screen"></div>
+        </div>
+        <div class="crisis-bar">
+          <span class="crisis-bar__title">Need help right now?</span>
+          <div class="crisis-bar__actions">
+            <a class="btn btn--ice-strong btn--pill" href="tel:18005990019" onclick="return false"><span id="kiranIcon"></span> KIRAN</a>
+            <a class="btn btn--coral btn--pill" href="tel:112" onclick="return false"><span id="callIcon"></span> 112</a>
+          </div>
+        </div>
+      </div>
+      <p class="label-caption">A phone-width preview — not the full viewport.</p>
+    </div>
+    <div class="dev-note t-body ink-muted" style="max-width:300px;">
+      <p class="t-label" style="color:var(--ink); margin-bottom:var(--space-2)">Try it</p>
+      <p>Each diagram animates once, then holds still — revisiting a step with Back never replays it. The crisis entry is present from the very first screen.</p>
+    </div>
+  </div>
+
+  <script src="../../assets/icons.js"></script>
+  <script>
+    document.getElementById('kiranIcon').appendChild(vgIconEl('phone', 16));
+    document.getElementById('callIcon').appendChild(vgIconEl('phone', 16));
+
+    const STEPS = [
+      {
+        title: 'Check in your way',
+        body: 'Tap, write, or speak — whatever is easiest today.',
+        icons: ['tap', 'text', 'mic'],
+      },
+      {
+        title: 'Understood on your phone',
+        body: 'What you say is read on this device. Not sent off to be read by a person or a server.',
+        icons: ['device', 'lock'],
+      },
+      {
+        title: 'Saved here first',
+        body: 'Nothing leaves your phone until it is saved here, first.',
+        icons: ['device', 'cloud'],
+      },
+      {
+        title: 'You decide what leaves',
+        body: 'Nothing is shared without your say-so. Ever.',
+        icons: ['shield', 'users'],
+      },
+      {
+        title: 'Counselors read words, not scores',
+        body: 'If you choose to share, a person reads what you wrote in plain English. No one sees a number about you.',
+        icons: ['eye', 'users'],
+      },
+    ];
+
+    let step = 0;
+    const seenDiagram = new Set();
+    const screen = document.getElementById('screen');
+
+    function render() {
+      if (step >= STEPS.length) { renderDone(); return; }
+      const s = STEPS[step];
+      const alreadySeen = seenDiagram.has(step);
+      seenDiagram.add(step);
+
+      screen.innerHTML = `
+        <div class="top-row">
+          <button type="button" class="skip-link t-body" id="skipBtn">Skip</button>
+        </div>
+        <div class="diagram${alreadySeen ? '' : ' animate'}" id="diagram" aria-hidden="true"></div>
+        <div class="step-body">
+          <h2 class="t-title">${s.title}</h2>
+          <p class="t-body ink-muted">${s.body}</p>
+        </div>
+        <div class="dots" role="img" aria-label="Step ${step + 1} of ${STEPS.length}">
+          ${STEPS.map((_, i) => `<span class="${i === step ? 'active' : ''}"></span>`).join('')}
+        </div>
+        <div class="step-nav">
+          <button type="button" class="btn btn--ghost" id="backBtn" ${step === 0 ? 'disabled' : ''}>Back</button>
+          <button type="button" class="btn btn--primary" id="nextBtn">${step === STEPS.length - 1 ? 'Get started' : 'Next'}</button>
+        </div>`;
+
+      const diagram = document.getElementById('diagram');
+      s.icons.forEach((name, i) => {
+        if (i > 0) {
+          const arrow = document.createElement('span');
+          arrow.className = 'diagram__arrow' + (alreadySeen ? '' : ' animate');
+          diagram.appendChild(arrow);
+        }
+        const ic = document.createElement('span');
+        ic.className = 'ic ic--64 ice'.replace('ice', i === s.icons.length - 1 ? 'ice-strong' : 'ice');
+        ic.style.animationDelay = (i * 160) + 'ms';
+        ic.appendChild(vgIconEl(name, 32));
+        diagram.appendChild(ic);
+      });
+
+      document.getElementById('skipBtn').addEventListener('click', () => { step = STEPS.length; render(); });
+      document.getElementById('backBtn').addEventListener('click', () => { step = Math.max(0, step - 1); render(); });
+      document.getElementById('nextBtn').addEventListener('click', () => { step++; render(); });
+    }
+
+    function renderDone() {
+      screen.innerHTML = `<div class="done-screen">
+          <span class="ic ic--88 ic--primary" id="doneIcon" style="margin-bottom:var(--space-5)"></span>
+          <p class="t-title">You're ready</p>
+          <p class="t-body ink-muted" style="margin-top:var(--space-3)">Check in whenever you like. Skip anything you like.</p>
+          <button type="button" class="btn btn--outline" id="restartBtn" style="margin-top:var(--space-6)">Watch it again</button>
+        </div>`;
+      document.getElementById('doneIcon').appendChild(vgIconEl('check', 44));
+      document.getElementById('restartBtn').addEventListener('click', () => { step = 0; seenDiagram.clear(); render(); });
+    }
+    render();
+
+    const root = document.documentElement;
+    let motionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const motionBtn = document.getElementById('motionBtn');
+    function paintMotionBtn() {
+      motionBtn.setAttribute('aria-pressed', String(motionReduced));
+      motionBtn.innerHTML = '';
+      motionBtn.appendChild(vgIconEl('clock', 16));
+      motionBtn.append(motionReduced ? ' Reduced motion' : ' Full motion');
+      if (motionReduced) { ['--t-quick','--t-base','--t-calm'].forEach(p => document.documentElement.style.setProperty(p,'1ms')); }
+      else { ['--t-quick','--t-base','--t-calm'].forEach(p => document.documentElement.style.removeProperty(p)); }
+    }
+    motionBtn.addEventListener('click', () => { motionReduced = !motionReduced; paintMotionBtn(); });
+    paintMotionBtn();
+
+    const themeBtn = document.getElementById('themeBtn');
+    function paintThemeBtn() {
+      const dark = root.getAttribute('data-theme') === 'dark';
+      themeBtn.setAttribute('aria-pressed', String(dark));
+      themeBtn.innerHTML = '';
+      themeBtn.appendChild(vgIconEl('moon', 16));
+      themeBtn.append(dark ? ' Dark' : ' Light');
+    }
+    themeBtn.addEventListener('click', () => {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      paintThemeBtn();
+    });
+    paintThemeBtn();
+  </script>
+</body>
+</html>

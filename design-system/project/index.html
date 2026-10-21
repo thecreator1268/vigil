@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIGIL — Design System</title>
+<link rel="stylesheet" href="assets/fonts.css" />
+<link rel="stylesheet" href="assets/tokens.css" />
+<link rel="stylesheet" href="assets/base.css" />
+<style>
+  body { background: var(--canvas); padding: var(--space-7) var(--space-5) var(--space-7); }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header.hero { margin-bottom: var(--space-7); }
+  .wordmark { font: 600 18px/24px var(--font-serif); letter-spacing: 3px; text-transform: uppercase; display: block; margin-bottom: var(--space-3); }
+  header.hero h1 { margin-bottom: var(--space-3); }
+  header.hero p { max-width: 600px; }
+  .hero-links { display: flex; gap: var(--space-3); margin-top: var(--space-5); flex-wrap: wrap; }
+
+  .group { margin-bottom: var(--space-7); }
+  .group h2 { margin-bottom: var(--space-4); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); }
+  .ccard { display: flex; flex-direction: column; gap: var(--space-3); }
+  .ccard h3 { margin: 0; }
+  .ccard p { flex: 1; }
+  .ccard-actions { display: flex; gap: var(--space-3); }
+  .ccard-actions a, .ccard-actions button { font: var(--text-caption); }
+
+  .sheet {
+    position: fixed; inset: 0; background: var(--scrim); display: none; align-items: flex-end;
+    justify-content: center; z-index: 50;
+  }
+  .sheet.show { display: flex; }
+  .sheet__panel {
+    background: var(--canvas); width: 100%; max-width: 720px; max-height: 80vh; overflow-y: auto;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-sheet); padding: var(--space-6);
+  }
+  .sheet__panel pre { white-space: pre-wrap; font: var(--text-body); font-family: var(--font-sans); }
+  .sheet__close { float: right; }
+</style>
+</head>
+<body>
+  <div class="devbar"><button id="themeBtn" aria-pressed="false"></button></div>
+  <div class="wrap">
+    <header class="hero vg-animate-in">
+      <span class="wordmark">VIGIL</span>
+      <h1 class="t-display" id="dsName">Design System</h1>
+      <p class="t-body-lg ink-muted" id="dsDesc"></p>
+      <div class="hero-links">
+        <a class="btn btn--outline" href="tokens.json" target="_blank" rel="noopener">View tokens.json</a>
+        <button class="btn btn--ghost" id="readmeBtn" type="button">Read the brand book</button>
+      </div>
+    </header>
+
+    <div id="groups"></div>
+  </div>
+
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Documentation">
+    <div class="sheet__panel">
+      <button class="sheet__close btn btn--ghost" id="sheetClose" type="button">Close</button>
+      <pre id="sheetBody" class="t-body"></pre>
+    </div>
+  </div>
+
+  <script src="assets/icons.js"></script>
+  <script>
+    function openSheet(text) {
+      document.getElementById('sheetBody').textContent = text;
+      document.getElementById('sheet').classList.add('show');
+    }
+    document.getElementById('sheetClose').addEventListener('click', () => document.getElementById('sheet').classList.remove('show'));
+    document.getElementById('sheet').addEventListener('click', (e) => { if (e.target.id === 'sheet') e.currentTarget.classList.remove('show'); });
+    document.getElementById('readmeBtn').addEventListener('click', async () => {
+      const r = await fetch('README.md');
+      openSheet(await r.text());
+    });
+
+    fetch('design-system.json').then(r => r.json()).then(ds => {
+      document.getElementById('dsName').textContent = ds.name + ' — Design System';
+      document.getElementById('dsDesc').textContent = ds.description;
+
+      const groups = {};
+      ds.components.forEach(c => { (groups[c.group] ??= []).push(c); });
+
+      const host = document.getElementById('groups');
+      Object.entries(groups).forEach(([group, comps]) => {
+        const section = document.createElement('section');
+        section.className = 'group';
+        section.innerHTML = `<h2 class="t-heading">${group}</h2><div class="cards" id="cards-${group}"></div>`;
+        host.appendChild(section);
+        const cardsEl = section.querySelector('.cards');
+        comps.forEach(c => {
+          const card = document.createElement('div');
+          card.className = 'card ccard';
+          card.innerHTML = `<h3 class="t-label">${c.name}</h3>
+            <p class="t-caption">${c.description}</p>
+            <div class="ccard-actions">
+              <a class="btn btn--outline btn--counselor" href="${c.preview}" target="_blank" rel="noopener">Open preview</a>
+              <button class="btn btn--ghost btn--counselor" data-readme="${c.readme}" type="button">Read docs</button>
+            </div>`;
+          card.querySelector('[data-readme]').addEventListener('click', async (e) => {
+            const r = await fetch(e.currentTarget.dataset.readme);
+            openSheet(await r.text());
+          });
+          cardsEl.appendChild(card);
+        });
+      });
+    });
+
+    const root = document.documentElement;
+    const themeBtn = document.getElementById('themeBtn');
+    function paintThemeBtn() {
+      const dark = root.getAttribute('data-theme') === 'dark';
+      themeBtn.setAttribute('aria-pressed', String(dark));
+      themeBtn.innerHTML = '';
+      themeBtn.appendChild(vgIconEl('moon', 16));
+      themeBtn.append(dark ? ' Dark' : ' Light');
+    }
+    themeBtn.addEventListener('click', () => {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      paintThemeBtn();
+    });
+    paintThemeBtn();
+  </script>
+</body>
+</html>

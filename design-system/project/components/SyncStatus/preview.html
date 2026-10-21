@@ -1,0 +1,149 @@
+<!-- @dsCard group="Components" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIGIL — SyncStatus</title>
+<link rel="stylesheet" href="../../assets/fonts.css" />
+<link rel="stylesheet" href="../../assets/tokens.css" />
+<link rel="stylesheet" href="../../assets/base.css" />
+<style>
+  body { background: var(--canvas); padding: var(--space-7) var(--space-5); }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  .intro { margin-bottom: var(--space-6); }
+  .intro h1 { margin-bottom: var(--space-3); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+    border-radius: var(--radius-pill); background: var(--panel); border: 1px solid var(--border);
+  }
+  .pill__ring-wrap { position: relative; width: 28px; height: 28px; }
+  .pill__ring {
+    position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid var(--ice-strong); opacity: 0;
+  }
+  .pill.is-syncing .pill__ring { animation: vg-breathe var(--t-breathe) var(--ease-in-place) infinite; }
+  .pill[data-reduced] .pill__ring { animation: none; opacity: .55; }
+  .pill__text { font: var(--text-caption); color: var(--ink-muted); white-space: nowrap; }
+
+  .states-row { display: flex; gap: var(--space-6); flex-wrap: wrap; margin-bottom: var(--space-7); }
+  .states-row .unit { display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start; }
+
+  .demo-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); }
+  .demo-controls { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+</style>
+</head>
+<body>
+  <div class="devbar">
+    <button id="reducedBtn" aria-pressed="false"></button>
+    <button id="themeBtn" aria-pressed="false"></button>
+  </div>
+  <div class="wrap">
+    <div class="intro vg-animate-in">
+      <h1 class="t-title">SyncStatus</h1>
+      <p class="t-body ink-muted">Where the data is, in three words. The breathing ring is the only continuous animation here — and the only place this pill ever loops.</p>
+    </div>
+
+    <section class="states-row" aria-label="The three states">
+      <div class="unit"><div id="stateSaved"></div><span class="t-caption">Resting, right after submit</span></div>
+      <div class="unit"><div id="stateSyncing"></div><span class="t-caption">While syncing — breathes every 3.4s</span></div>
+      <div class="unit"><div id="stateSynced"></div><span class="t-caption">Settled</span></div>
+    </section>
+
+    <section class="card demo-card">
+      <h2 class="t-heading">Live sequence</h2>
+      <p class="t-body ink-muted">Simulates what a real check-in does: saved immediately, syncs quietly in the background, settles once it lands.</p>
+      <div id="live" role="status" aria-live="polite"></div>
+      <div class="demo-controls">
+        <button class="btn btn--primary" id="runBtn">Simulate a check-in</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="../../assets/icons.js"></script>
+  <script>
+    let reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function makePill(state) {
+      const pill = document.createElement('div');
+      pill.className = 'pill';
+      const ringWrap = document.createElement('span');
+      ringWrap.className = 'pill__ring-wrap';
+      const ic = document.createElement('span');
+      ic.className = 'ic ic--28';
+      const ring = document.createElement('span');
+      ring.className = 'pill__ring';
+      ringWrap.append(ic, ring);
+      const text = document.createElement('span');
+      text.className = 'pill__text';
+      pill.append(ringWrap, text);
+      setPillState(pill, state);
+      return pill;
+    }
+    function setPillState(pill, state) {
+      const ic = pill.querySelector('.ic');
+      const text = pill.querySelector('.pill__text');
+      pill.classList.toggle('is-syncing', state === 'syncing');
+      if (state === 'saved') {
+        ic.className = 'ic ic--28 ic--ice';
+        ic.innerHTML = '';
+        ic.appendChild(vgIconEl('device', 14));
+        text.textContent = 'Saved on this device';
+      } else if (state === 'syncing') {
+        ic.className = 'ic ic--28 ic--ice';
+        ic.innerHTML = '';
+        ic.appendChild(vgIconEl('sync', 14));
+        text.textContent = 'Syncing quietly';
+      } else {
+        ic.className = 'ic ic--28 ic--primary';
+        ic.innerHTML = '';
+        ic.appendChild(vgIconEl('check', 14));
+        text.textContent = 'Synced';
+      }
+      pill.toggleAttribute('data-reduced', reduced);
+    }
+
+    document.getElementById('stateSaved').appendChild(makePill('saved'));
+    document.getElementById('stateSyncing').appendChild(makePill('syncing'));
+    document.getElementById('stateSynced').appendChild(makePill('synced'));
+
+    const live = document.getElementById('live');
+    const livePill = makePill('saved');
+    live.appendChild(livePill);
+
+    document.getElementById('runBtn').addEventListener('click', () => {
+      setPillState(livePill, 'saved');
+      setTimeout(() => setPillState(livePill, 'syncing'), 500);
+      setTimeout(() => setPillState(livePill, 'synced'), 500 + (reduced ? 200 : 3600));
+    });
+
+    const root = document.documentElement;
+    const reducedBtn = document.getElementById('reducedBtn');
+    function paintReducedBtn() {
+      reducedBtn.setAttribute('aria-pressed', String(reduced));
+      reducedBtn.innerHTML = '';
+      reducedBtn.appendChild(vgIconEl('clock', 16));
+      reducedBtn.append(reduced ? ' Reduced motion' : ' Full motion');
+      document.querySelectorAll('.pill').forEach(p => p.toggleAttribute('data-reduced', reduced));
+    }
+    reducedBtn.addEventListener('click', () => { reduced = !reduced; paintReducedBtn(); });
+    paintReducedBtn();
+
+    const themeBtn = document.getElementById('themeBtn');
+    function paintThemeBtn() {
+      const dark = root.getAttribute('data-theme') === 'dark';
+      themeBtn.setAttribute('aria-pressed', String(dark));
+      themeBtn.innerHTML = '';
+      themeBtn.appendChild(vgIconEl('moon', 16));
+      themeBtn.append(dark ? ' Dark' : ' Light');
+    }
+    themeBtn.addEventListener('click', () => {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      paintThemeBtn();
+    });
+    paintThemeBtn();
+  </script>
+</body>
+</html>

@@ -1,0 +1,498 @@
+<!-- @dsCard group="Screens" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIGIL — CounselorDashboard</title>
+<link rel="stylesheet" href="../../assets/fonts.css" />
+<link rel="stylesheet" href="../../assets/tokens.css" />
+<link rel="stylesheet" href="../../assets/base.css" />
+<style>
+  body { background: var(--canvas); }
+  .app { max-width: 1180px; margin: 0 auto; padding: var(--space-5) var(--space-5) var(--space-7); }
+  header.top {
+    display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4) 0 var(--space-5);
+    border-bottom: 1px solid var(--border); margin-bottom: var(--space-5);
+  }
+  .wordmark { font: 600 18px/24px var(--font-serif); letter-spacing: 3px; text-transform: uppercase; }
+  .badge { font: var(--text-caption); background: var(--ice); color: var(--on-ice); padding: 3px 10px; border-radius: var(--radius-pill); }
+  header.top .spacer { flex: 1; }
+
+  /* summary strip */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6); }
+  .tile { display: flex; align-items: center; gap: var(--space-4); }
+  .tile .num { font: 600 32px/1 var(--font-serif); }
+  .tile .tile-text { display: flex; flex-direction: column; }
+
+  /* tabs */
+  .tabs { display: flex; gap: var(--space-2); margin-bottom: var(--space-5); border-bottom: 1px solid var(--border); }
+  .tabs button {
+    padding: var(--space-3) var(--space-2); font: var(--text-label); color: var(--ink-muted);
+    border-bottom: 3px solid transparent; margin-bottom: -1px; min-height: var(--touch-min-counselor);
+  }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--primary); }
+
+  .layout { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: var(--space-5); align-items: flex-start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .filters { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .filters button {
+    padding: var(--space-2) var(--space-3); border-radius: var(--radius-pill); border: 1px solid var(--border-strong);
+    font: var(--text-caption); min-height: var(--touch-min-counselor);
+  }
+  .filters button[aria-pressed="true"] { background: var(--ink); color: var(--canvas); border-color: var(--ink); }
+
+  .queue { position: relative; }
+  .queue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); }
+  .alert-row {
+    display: block; width: 100%; text-align: left; padding: var(--space-4); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); background: var(--canvas); margin-bottom: var(--space-3); opacity: 0;
+    cursor: pointer;
+  }
+  .alert-row.show { animation: vg-fade-rise-sm var(--t-base) var(--ease-out-arrival) both; }
+  .alert-row.selected { border-color: var(--primary); border-width: 2px; }
+  .alert-row.collapsing { animation: vg-collapse var(--t-base) var(--ease-in-place) forwards; }
+  .alert-row.flash { animation: vg-flash var(--t-base) var(--ease-out-arrival); }
+  .alert-row__top { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+  .tier-tag { font: var(--text-caption); font-weight: 600; padding: 2px 10px; border-radius: var(--radius-pill); }
+  .tier-tag.today { background: var(--coral-tint); color: var(--coral-ink); }
+  .tier-tag.week { background: var(--ice-strong); color: var(--on-ice); }
+  .tier-tag.watch { background: var(--ice); color: var(--on-ice); }
+  .alert-row__name { font: var(--text-label); }
+  .alert-row__when { font: var(--text-caption); margin-left: auto; }
+  .alert-row__reason { font: var(--text-body); margin-bottom: var(--space-3); }
+  .alert-row__tags { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-3); }
+  .signal-tag { font: var(--text-caption); background: var(--panel); border: 1px solid var(--border); padding: 2px 8px; border-radius: var(--radius-sm); }
+  .alert-row__actions { display: flex; gap: var(--space-3); }
+  .alert-row__actions button { font: var(--text-caption); }
+
+  .undo-toast {
+    position: sticky; bottom: var(--space-3); display: flex; justify-content: space-between; align-items: center;
+    gap: var(--space-3); background: var(--ink); color: var(--canvas); padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md); transform: translateY(16px); opacity: 0; pointer-events: none;
+    transition: transform var(--t-base) var(--ease-out-arrival), opacity var(--t-base) var(--ease-out-arrival);
+  }
+  .undo-toast.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+  .undo-toast button { color: var(--ice); text-decoration: underline; }
+
+  .people-list .person-row {
+    display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: left;
+    padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: var(--space-2);
+    min-height: var(--touch-min-counselor);
+  }
+  .person-row.selected { border-color: var(--primary); border-width: 2px; }
+
+  /* detail panel */
+  .detail { min-height: 420px; }
+  .detail__empty { color: var(--ink-muted); text-align: center; padding: var(--space-7) var(--space-4); }
+  .detail__header { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+  .detail__reason { margin-bottom: var(--space-5); }
+  .detail__section { margin-bottom: var(--space-6); }
+  .detail__section h3 { margin-bottom: var(--space-3); }
+  .consent-note { font: var(--text-caption); margin-top: var(--space-2); }
+  .quote { background: var(--panel); border-radius: var(--radius-md); padding: var(--space-4); margin-top: var(--space-2); }
+
+  .trend-wrap { outline: none; }
+  .trend-wrap:focus-visible svg { outline: 3px solid var(--focus-ring); outline-offset: 4px; border-radius: var(--radius-md); }
+  .trend-axis { display: flex; justify-content: space-between; font: var(--text-caption); margin-bottom: var(--space-2); }
+  .trend-band { opacity: 0; transition: opacity var(--t-base) var(--ease-out-arrival); }
+  .trend-band.show { opacity: 1; }
+  .trend-line { stroke-dasharray: 600; stroke-dashoffset: 600; }
+  .trend-line.draw { animation: vg-trend-draw var(--t-draw) var(--ease-out-arrival) forwards; }
+  @keyframes vg-trend-draw { to { stroke-dashoffset: 0; } }
+  .trend-dot { opacity: 0; }
+  .trend-dot.show { animation: vg-fade-rise-sm var(--t-quick) var(--ease-out-arrival) both; }
+  .trend-guide { opacity: 0; transition: opacity var(--t-quick) var(--ease-out-arrival); }
+  .trend-tooltip {
+    position: absolute; background: var(--ink); color: var(--canvas); padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm); font: var(--text-caption); pointer-events: none; opacity: 0; white-space: nowrap;
+    transition: opacity var(--t-quick) var(--ease-out-arrival); transform: translate(-50%, -110%);
+  }
+  .trend-tooltip.show { opacity: 1; }
+  .trend-box { position: relative; }
+  .no-baseline { color: var(--ink-muted); padding: var(--space-5); background: var(--panel); border-radius: var(--radius-md); }
+</style>
+</head>
+<body>
+  <div class="devbar">
+    <button id="liveBtn"></button>
+    <button id="motionBtn" aria-pressed="false"></button>
+    <button id="themeBtn" aria-pressed="false"></button>
+  </div>
+
+  <div class="app">
+    <header class="top">
+      <span class="wordmark">VIGIL</span>
+      <span class="badge">Counselor</span>
+      <span class="spacer"></span>
+      <button class="btn btn--ghost btn--counselor" type="button">Sign out</button>
+    </header>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="tabs" role="tablist" aria-label="View">
+      <button role="tab" id="tabAlerts" aria-selected="true">Alerts</button>
+      <button role="tab" id="tabPeople" aria-selected="false">People</button>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div id="viewAlerts">
+          <div class="filters" id="filters"></div>
+          <div class="queue">
+            <div class="queue-header"><span class="t-caption">Most urgent first</span></div>
+            <div id="queueList"></div>
+            <div class="undo-toast" id="undoToast">
+              <span class="t-caption" style="color:inherit">Acknowledged</span>
+              <button type="button" id="undoBtn">Undo</button>
+            </div>
+          </div>
+        </div>
+        <div id="viewPeople" class="people-list" style="display:none;"></div>
+      </div>
+
+      <div class="card detail" id="detail"></div>
+    </div>
+  </div>
+
+  <script src="../../assets/icons.js"></script>
+  <script>
+    // ---------------- data ----------------
+    const PEOPLE = {
+      meera: { name: 'Meera', caseId: 'DEMO/1042/2026', lastCheckin: 'today', trend: [62,58,55,60,58,70,82,88,92,95], band: [48,66] },
+      asha:  { name: 'Asha',  caseId: 'DEMO/2217/2026', lastCheckin: '3 hours ago', trend: [50,52,49,53,51,50,78,90,0,0].slice(0,6), band: [45,58] },
+      priya: { name: 'Priya', caseId: 'DEMO/3380/2026', lastCheckin: 'yesterday', trend: [40,42,38,44,41,52,60,63,67,70], band: [36,48] },
+      reshma:{ name: 'Reshma',caseId: 'DEMO/4561/2026', lastCheckin: '2 days ago', trend: [44,40,46,43,45,48,50,52,49,53], band: [38,50] },
+    };
+    let ALERTS = [
+      { id: 'a1', person: 'meera', tier: 'today', when: '3 hours ago',
+        reason: 'Wrote about feeling unsafe at night, and has slept poorly for 4 days in a row.',
+        tags: ['Their own answers', 'The words they chose', 'Timing of check-ins'],
+        shared: 'Still scared to sleep with the lights off. Nothing has changed at home.' },
+      { id: 'a2', person: 'asha', tier: 'today', when: '6 hours ago',
+        reason: 'Mentioned someone coming to her house, and said she does not feel safe right now.',
+        tags: ['The words they chose'],
+        shared: 'They came to the house again yesterday evening.' },
+      { id: 'a3', person: 'priya', tier: 'week', when: '29 Sept',
+        reason: 'Has seemed a little more tired this week, and checked in later than usual most days.',
+        tags: ['Their own answers', 'Timing of check-ins'],
+        shared: null },
+      { id: 'a4', person: 'reshma', tier: 'watch', when: '27 Sept',
+        reason: 'Nothing concerning yet — just slightly quieter than her usual pattern.',
+        tags: ['Their own answers'],
+        shared: null },
+    ];
+    const TIER_LABEL = { today: 'Reach out today', week: 'Reach out this week', watch: 'Keep an eye on' };
+    const TIER_RANK = { today: 0, week: 1, watch: 2 };
+
+    let activeFilter = 'all';
+    let selectedId = null; // alert id or `person:<key>`
+    let removedStack = [];
+
+    // ---------------- summary ----------------
+    function countUp(el, to) {
+      const start = performance.now();
+      const dur = reduced() ? 1 : 700;
+      function step(t) {
+        const p = Math.min(1, (t - start) / dur);
+        el.textContent = Math.round(p * to);
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+    function renderSummary() {
+      const tiles = [
+        { icon: 'users', label: 'People checking in', value: 24 },
+        { icon: 'alert', label: 'Need attention', value: ALERTS.length },
+        { icon: 'check', label: 'Reached out today', value: 2 },
+      ];
+      const el = document.getElementById('summary');
+      el.innerHTML = '';
+      tiles.forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'card tile vg-animate-in';
+        const span = document.createElement('span');
+        card.innerHTML = `<span class="ic ic--48 ic--ice"></span>
+          <span class="tile-text"><span class="num" data-to="${t.value}">0</span><span class="t-caption">${t.label}</span></span>`;
+        card.querySelector('.ic').appendChild(vgIconEl(t.icon, 24));
+        el.appendChild(card);
+        countUp(card.querySelector('.num'), t.value);
+      });
+    }
+
+    // ---------------- queue ----------------
+    function renderFilters() {
+      const el = document.getElementById('filters');
+      el.innerHTML = '';
+      [['all', 'All'], ['today', 'Reach out today'], ['week', 'Reach out this week'], ['watch', 'Keep an eye on']].forEach(([key, label]) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = label;
+        b.setAttribute('aria-pressed', String(key === activeFilter));
+        b.addEventListener('click', () => { activeFilter = key; renderFilters(); renderQueue(); });
+        el.appendChild(b);
+      });
+    }
+    function visibleAlerts() {
+      return ALERTS.filter(a => activeFilter === 'all' || a.tier === activeFilter)
+        .sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier]);
+    }
+    function renderQueue() {
+      const list = document.getElementById('queueList');
+      list.innerHTML = '';
+      const rows = visibleAlerts();
+      if (!rows.length) {
+        list.innerHTML = '<p class="t-body ink-muted" style="padding:var(--space-5) 0">Nothing here right now.</p>';
+      }
+      rows.forEach((a, i) => {
+        const p = PEOPLE[a.person];
+        const row = document.createElement('div');
+        row.className = 'alert-row show' + (selectedId === a.id ? ' selected' : '');
+        row.style.animationDelay = (i * 70) + 'ms';
+        row.innerHTML = `
+          <div class="alert-row__top">
+            <span class="tier-tag ${a.tier}">${TIER_LABEL[a.tier]}</span>
+            <span class="alert-row__name t-label">${p.name}</span>
+            <span class="alert-row__when ink-muted">${a.when}</span>
+          </div>
+          <p class="alert-row__reason">${a.reason}</p>
+          <div class="alert-row__tags">${a.tags.map(t => `<span class="signal-tag">${t}</span>`).join('')}</div>
+          <div class="alert-row__actions">
+            <button type="button" class="btn btn--outline btn--counselor" data-act="details">Details</button>
+            <button type="button" class="btn btn--primary btn--counselor" data-act="ack">Acknowledge</button>
+          </div>`;
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('[data-act="ack"]')) { acknowledge(a); return; }
+          selectedId = a.id; renderQueue(); renderDetail();
+        });
+        list.appendChild(row);
+      });
+    }
+    function acknowledge(a) {
+      ALERTS = ALERTS.filter(x => x.id !== a.id);
+      removedStack.push(a);
+      renderSummary(); renderFilters(); renderQueue();
+      const toast = document.getElementById('undoToast');
+      toast.classList.add('show');
+      clearTimeout(acknowledge._t);
+      acknowledge._t = setTimeout(() => toast.classList.remove('show'), 4000);
+      if (selectedId === a.id) { selectedId = null; renderDetail(); }
+    }
+    document.getElementById('undoBtn').addEventListener('click', () => {
+      const a = removedStack.pop();
+      if (!a) return;
+      ALERTS.push(a);
+      document.getElementById('undoToast').classList.remove('show');
+      renderSummary(); renderFilters(); renderQueue();
+      requestAnimationFrame(() => {
+        const row = [...document.querySelectorAll('.alert-row')].find(r => r.querySelector('.alert-row__name')?.textContent === PEOPLE[a.person].name);
+        if (row) { row.classList.add('flash'); }
+      });
+    });
+
+    // simulate a live incoming alert
+    document.getElementById('liveBtn').addEventListener('click', () => {
+      const incoming = { id: 'live-' + Date.now(), person: 'priya', tier: 'today', when: 'just now',
+        reason: 'Their last two check-ins were well below what is usual for them, and today’s came later than usual.',
+        tags: ['Their own answers', 'Timing of check-ins'], shared: null };
+      ALERTS.unshift(incoming);
+      renderSummary(); renderFilters(); renderQueue();
+      requestAnimationFrame(() => {
+        const row = document.querySelector('.alert-row');
+        if (row) row.classList.add('flash');
+      });
+    });
+
+    // ---------------- people tab ----------------
+    function renderPeople() {
+      const el = document.getElementById('viewPeople');
+      el.innerHTML = '';
+      Object.entries(PEOPLE).forEach(([key, p]) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'person-row' + (selectedId === `person:${key}` ? ' selected' : '');
+        row.innerHTML = `<span class="ic ic--32 ice ic--ice"></span>
+          <span style="flex:1"><span class="t-label" style="display:block">${p.name}</span>
+          <span class="t-caption">Last check-in: ${p.lastCheckin}</span></span>`;
+        row.querySelector('.ic').appendChild(vgIconEl('users', 16));
+        row.addEventListener('click', () => { selectedId = `person:${key}`; renderPeople(); renderDetail(); });
+        el.appendChild(row);
+      });
+    }
+
+    // ---------------- detail + trend ----------------
+    function reduced() { return document.documentElement.getAttribute('data-motion') === 'reduced'; }
+    function msVar(name) {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v.endsWith('ms') ? parseFloat(v) : parseFloat(v) * 1000;
+    }
+    function renderDetail() {
+      const el = document.getElementById('detail');
+      let personKey = null, alert = null;
+      if (selectedId && selectedId.startsWith('person:')) personKey = selectedId.slice(7);
+      else if (selectedId) { alert = ALERTS.find(a => a.id === selectedId); personKey = alert?.person; }
+
+      if (!personKey) {
+        el.innerHTML = '<div class="detail__empty"><p class="t-body">Select an alert or a person to see what’s happening with them.</p></div>';
+        return;
+      }
+      const p = PEOPLE[personKey];
+      el.innerHTML = `
+        <div class="detail__header">
+          <span class="ic ic--48 ic--ice" id="detailIcon"></span>
+          <div><span class="t-heading" style="display:block">${p.name}</span><span class="t-caption">Case ${p.caseId}</span></div>
+        </div>
+        ${alert ? `<div class="detail__reason">
+            <span class="tier-tag ${alert.tier}">${TIER_LABEL[alert.tier]}</span>
+            <p class="t-body" style="margin-top:var(--space-3)">${alert.reason}</p>
+          </div>` : '<p class="t-body ink-muted detail__reason">No open alert for them right now.</p>'}
+        ${alert && alert.shared ? `<div class="detail__section">
+            <h3 class="t-label">What they told us</h3>
+            <div class="quote t-body">“${alert.shared}”</div>
+            <p class="t-caption consent-note">Notes appear only because ${p.name} chose to share them with you.</p>
+          </div>` : ''}
+        <div class="detail__section">
+          <h3 class="t-label">Compared with what's usual for them</h3>
+          <div id="trendHost"></div>
+        </div>`;
+      el.querySelector('#detailIcon').appendChild(vgIconEl('users', 24));
+      renderTrend(document.getElementById('trendHost'), p);
+    }
+
+    function renderTrend(host, p) {
+      if (!p.trend || p.trend.length < 4) {
+        host.innerHTML = '<p class="no-baseline t-body">Not enough check-ins yet to compare.</p>';
+        return;
+      }
+      const w = 540, h = 170, padX = 14;
+      const n = p.trend.length;
+      const x = i => padX + (i * (w - padX * 2)) / (n - 1);
+      const y = v => 10 + (v / 100) * (h - 20);
+      const bandTop = y(p.band[0]), bandBottom = y(p.band[1]);
+      const pts = p.trend.map((v, i) => [x(i), y(v)]);
+      const path = pts.map((pt, i) => (i === 0 ? 'M' : 'L') + pt[0].toFixed(1) + ',' + pt[1].toFixed(1)).join(' ');
+
+      host.innerHTML = `
+        <div class="trend-axis"><span>Lighter</span><span>Heavier</span></div>
+        <div class="trend-box">
+          <div class="trend-wrap" id="trendWrap" tabindex="0" role="img" aria-label="Trend compared with their usual range, scrub with arrow keys">
+            <svg viewBox="0 0 ${w} ${h}" id="trendSvg" style="width:100%;height:${h}px;">
+              <rect class="trend-band" x="${padX}" y="${bandTop}" width="${w - padX * 2}" height="${bandBottom - bandTop}" rx="8" fill="var(--ice)"></rect>
+              <line class="trend-guide" id="trendGuide" x1="0" y1="10" x2="0" y2="${h - 10}" stroke="var(--border-strong)" stroke-width="1.5"></line>
+              <path class="trend-line" d="${path}" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round"></path>
+            </svg>
+          </div>
+          <div class="trend-tooltip" id="trendTooltip"></div>
+        </div>`;
+
+      const svg = document.getElementById('trendSvg');
+      const band = svg.querySelector('.trend-band');
+      const line = svg.querySelector('.trend-line');
+      requestAnimationFrame(() => { band.classList.add('show'); line.classList.add('draw'); });
+      const draw = msVar('--t-draw');
+      pts.forEach((pt, i) => {
+        setTimeout(() => {
+          const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          dot.setAttribute('cx', pt[0]); dot.setAttribute('cy', pt[1]); dot.setAttribute('r', 4);
+          dot.setAttribute('fill', 'var(--primary)'); dot.classList.add('trend-dot');
+          dot.dataset.i = i;
+          svg.appendChild(dot);
+          requestAnimationFrame(() => dot.classList.add('show'));
+        }, (draw / (pts.length - 1 || 1)) * i);
+      });
+
+      const guide = document.getElementById('trendGuide');
+      const tooltip = document.getElementById('trendTooltip');
+      const wrap = document.getElementById('trendWrap');
+      let idx = n - 1;
+
+      function wordFor(v) {
+        if (v < p.band[0]) return 'lighter than usual for them';
+        if (v > p.band[1]) return 'heavier than usual for them';
+        return 'within their usual range';
+      }
+      function showAt(i) {
+        idx = Math.max(0, Math.min(n - 1, i));
+        const pt = pts[idx];
+        guide.setAttribute('x1', pt[0]); guide.setAttribute('x2', pt[0]);
+        guide.style.opacity = 1;
+        const rect = svg.getBoundingClientRect();
+        const hostRect = host.querySelector('.trend-box').getBoundingClientRect();
+        const scaleX = rect.width / w;
+        tooltip.style.left = (pt[0] * scaleX) + 'px';
+        tooltip.style.top = ((pt[1] / h) * rect.height) + 'px';
+        tooltip.textContent = `Day ${idx + 1} — ${wordFor(p.trend[idx])}`;
+        tooltip.classList.add('show');
+      }
+      function hide() { guide.style.opacity = 0; tooltip.classList.remove('show'); }
+      svg.addEventListener('mousemove', (e) => {
+        const rect = svg.getBoundingClientRect();
+        const rel = (e.clientX - rect.left) / rect.width * w;
+        let best = 0, bestD = Infinity;
+        pts.forEach((pt, i) => { const d = Math.abs(pt[0] - rel); if (d < bestD) { bestD = d; best = i; } });
+        showAt(best);
+      });
+      svg.addEventListener('mouseleave', hide);
+      wrap.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') { e.preventDefault(); showAt(idx + 1); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); showAt(idx - 1); }
+        if (e.key === 'Escape') hide();
+      });
+      wrap.addEventListener('focus', () => showAt(idx));
+      wrap.addEventListener('blur', hide);
+    }
+
+    // ---------------- tabs ----------------
+    document.getElementById('tabAlerts').addEventListener('click', () => {
+      document.getElementById('tabAlerts').setAttribute('aria-selected', 'true');
+      document.getElementById('tabPeople').setAttribute('aria-selected', 'false');
+      document.getElementById('viewAlerts').style.display = '';
+      document.getElementById('viewPeople').style.display = 'none';
+    });
+    document.getElementById('tabPeople').addEventListener('click', () => {
+      document.getElementById('tabPeople').setAttribute('aria-selected', 'true');
+      document.getElementById('tabAlerts').setAttribute('aria-selected', 'false');
+      document.getElementById('viewPeople').style.display = '';
+      document.getElementById('viewAlerts').style.display = 'none';
+      renderPeople();
+    });
+
+    // ---------------- init ----------------
+    renderSummary(); renderFilters(); renderQueue(); renderDetail();
+
+    // ---------------- toggles ----------------
+    const root = document.documentElement;
+    const liveBtn = document.getElementById('liveBtn');
+    liveBtn.innerHTML = ''; liveBtn.appendChild(vgIconEl('bell', 16)); liveBtn.append(' New alert');
+    liveBtn.style.cssText = 'display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;font-size:12px;color:var(--ink-muted)';
+
+    let motionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const motionBtn = document.getElementById('motionBtn');
+    function paintMotionBtn() {
+      root.setAttribute('data-motion', motionReduced ? 'reduced' : 'full');
+      motionBtn.setAttribute('aria-pressed', String(motionReduced));
+      motionBtn.innerHTML = '';
+      motionBtn.appendChild(vgIconEl('clock', 16));
+      motionBtn.append(motionReduced ? ' Reduced motion' : ' Full motion');
+      if (motionReduced) { ['--t-quick','--t-base','--t-calm','--t-draw'].forEach(p => document.documentElement.style.setProperty(p,'1ms')); }
+      else { ['--t-quick','--t-base','--t-calm','--t-draw'].forEach(p => document.documentElement.style.removeProperty(p)); }
+    }
+    motionBtn.addEventListener('click', () => { motionReduced = !motionReduced; paintMotionBtn(); });
+    paintMotionBtn();
+
+    const themeBtn = document.getElementById('themeBtn');
+    function paintThemeBtn() {
+      const dark = root.getAttribute('data-theme') === 'dark';
+      themeBtn.setAttribute('aria-pressed', String(dark));
+      themeBtn.innerHTML = '';
+      themeBtn.appendChild(vgIconEl('moon', 16));
+      themeBtn.append(dark ? ' Dark' : ' Light');
+    }
+    themeBtn.addEventListener('click', () => {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      paintThemeBtn();
+    });
+    paintThemeBtn();
+  </script>
+</body>
+</html>

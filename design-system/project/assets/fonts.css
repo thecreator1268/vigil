@@ -1,0 +1,6 @@
+/**
+ * Preview-only font loading. The production app self-hosts Source Serif 4
+ * and Source Sans 3 and precaches them in the service worker — these
+ * previews load from Google Fonts purely for display convenience.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Source+Sans+3:wght@400;600;700&display=swap');

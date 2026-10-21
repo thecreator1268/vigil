@@ -1,0 +1,73 @@
+{
+  "name": "VIGIL",
+  "tagline": "A dignity-first check-in, redesigned to feel steady.",
+  "description": "Screen redesign of the existing navy VIGIL PWA — a check-in app for survivors of atrocities, and a trend dashboard for the counselors who support them. This is a redesign, not a rebrand: every decision serves one feeling. Steady. Calm and clinical-adjacent, never clinical-cold, playful, or alarming.",
+  "version": "1.0.0",
+  "feeling": "steady",
+  "readme": "README.md",
+  "tokens": "tokens.json",
+  "assets": {
+    "tokens_css": "assets/tokens.css",
+    "fonts_css": "assets/fonts.css",
+    "base_css": "assets/base.css",
+    "icons_js": "assets/icons.js"
+  },
+  "components": [
+    {
+      "name": "Cover",
+      "group": "Foundations",
+      "path": "components/Cover",
+      "readme": "components/Cover/README.md",
+      "preview": "components/Cover/preview.html",
+      "description": "The design system's own title card: wordmark, tagline, and the five-swatch palette that carries the whole feeling."
+    },
+    {
+      "name": "IconCircle",
+      "group": "Foundations",
+      "path": "components/IconCircle",
+      "readme": "components/IconCircle/README.md",
+      "preview": "components/IconCircle/preview.html",
+      "description": "The one icon motif used everywhere: an icon inside a soft tinted circle. All tones and sizes, with the full starter icon set."
+    },
+    {
+      "name": "Motion",
+      "group": "Foundations",
+      "path": "components/Motion",
+      "readme": "components/Motion/README.md",
+      "preview": "components/Motion/preview.html",
+      "description": "Reference surface for easings, durations, and the key choreographed sequences — submit, alert stagger, trend draw-in, sync breathing ring — plus a live prefers-reduced-motion toggle."
+    },
+    {
+      "name": "SyncStatus",
+      "group": "Components",
+      "path": "components/SyncStatus",
+      "readme": "components/SyncStatus/README.md",
+      "preview": "components/SyncStatus/preview.html",
+      "description": "The small header pill reporting where a check-in's data is: saved on this device, syncing quietly, or synced."
+    },
+    {
+      "name": "CheckIn",
+      "group": "Screens",
+      "path": "components/CheckIn",
+      "readme": "components/CheckIn/README.md",
+      "preview": "components/CheckIn/preview.html",
+      "description": "The home screen and the four-question skippable check-in flow, with the always-visible crisis entry and the 'saved on this device' confirmation."
+    },
+    {
+      "name": "Explainer",
+      "group": "Screens",
+      "path": "components/Explainer",
+      "readme": "components/Explainer/README.md",
+      "preview": "components/Explainer/preview.html",
+      "description": "The five-step first-run walkthrough that sets expectations about privacy and control before anyone is asked to check in."
+    },
+    {
+      "name": "CounselorDashboard",
+      "group": "Screens",
+      "path": "components/CounselorDashboard",
+      "readme": "components/CounselorDashboard/README.md",
+      "preview": "components/CounselorDashboard/preview.html",
+      "description": "The counselor-facing alert queue and per-person trend view: plain-English reasons, never scores, with acknowledge/undo and a baseline-band trend chart."
+    }
+  ]
+}

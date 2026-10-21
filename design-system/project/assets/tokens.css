@@ -1,0 +1,114 @@
+/**
+ * VIGIL design tokens. Source of truth is ../tokens.json — this file is a
+ * hand-synced CSS mirror of it, for the preview.html files to share.
+ *
+ * Dark is the real app-shell navy (a night mode), not an inverted palette.
+ * Values are declared once under @media (prefers-color-scheme: dark) and
+ * again under :root[data-theme="dark"] so a manual toggle (used in these
+ * previews) and the OS setting agree.
+ */
+:root {
+  /* ---- color (light) ---- */
+  --canvas: #ffffff;
+  --panel: #f5f7fa;
+  --border: #c9d3e0;
+  --border-strong: #7a88a3;
+  --ink: #1e2761;
+  --ink-muted: #46517a;
+  --primary: #1e2761;
+  --on-primary: #ffffff;
+  --ice: #dcebfb;
+  --on-ice: #1e2761;
+  --ice-strong: #b7d3f2;
+  --coral: #e8735a;
+  --on-coral: #1e2761;
+  --coral-tint: #fce8e3;
+  --coral-ink: #9c3420;
+  --focus-ring: #1e2761;
+  --scrim: rgba(15, 31, 61, .45);
+  --shadow-soft: 0 1px 2px rgba(30, 39, 97, .06), 0 8px 24px rgba(30, 39, 97, .08);
+  --shadow-sheet: 0 -8px 32px rgba(30, 39, 97, .18);
+
+  /* ---- type ---- */
+  --font-serif: 'Source Serif 4', Cambria, Georgia, serif;
+  --font-sans: 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+
+  --text-display: 600 36px/42px var(--font-serif);
+  --text-title: 600 28px/34px var(--font-serif);
+  --text-heading: 600 22px/30px var(--font-serif);
+  --text-wordmark: 600 18px/24px var(--font-serif);
+  --text-body-lg: 400 19px/28px var(--font-sans);
+  --text-body: 400 17px/26px var(--font-sans);
+  --text-label: 600 16px/22px var(--font-sans);
+  --text-caption: 400 14px/20px var(--font-sans);
+
+  /* ---- space / size ---- */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px;
+  --touch-min: 56px;
+  --touch-min-counselor: 44px;
+
+  /* ---- radius ---- */
+  --radius-sm: 8px; --radius-md: 14px; --radius-lg: 22px;
+  --radius-pill: 999px; --radius-circle: 50%;
+
+  /* ---- motion ---- */
+  --ease-out-arrival: cubic-bezier(.22, .61, .36, 1);
+  --ease-in-place: cubic-bezier(.45, .05, .25, 1);
+  --t-quick: 160ms; --t-base: 320ms; --t-calm: 520ms; --t-slow: 900ms; --t-draw: 1400ms;
+  --t-breathe: 3400ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --canvas: #0f1f3d;
+    --panel: #172a52;
+    --border: #2d4373;
+    --border-strong: #6f85b0;
+    --ink: #eef3fb;
+    --ink-muted: #aebbd6;
+    --primary: #dcebfb;
+    --on-primary: #1e2761;
+    --ice: #24407a;
+    --on-ice: #dcebfb;
+    --ice-strong: #35589f;
+    --coral: #f08a72;
+    --on-coral: #1e2761;
+    --coral-tint: #3d2a3f;
+    --coral-ink: #ffb9a8;
+    --focus-ring: #dcebfb;
+    --scrim: rgba(0, 0, 0, .55);
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+    --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, .5);
+  }
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0f1f3d;
+  --panel: #172a52;
+  --border: #2d4373;
+  --border-strong: #6f85b0;
+  --ink: #eef3fb;
+  --ink-muted: #aebbd6;
+  --primary: #dcebfb;
+  --on-primary: #1e2761;
+  --ice: #24407a;
+  --on-ice: #dcebfb;
+  --ice-strong: #35589f;
+  --coral: #f08a72;
+  --on-coral: #1e2761;
+  --coral-tint: #3d2a3f;
+  --coral-ink: #ffb9a8;
+  --focus-ring: #dcebfb;
+  --scrim: rgba(0, 0, 0, .55);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
+  --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, .5);
+}
+
+/* Production fallback: real app's CSS honors the OS setting directly.
+   (These previews additionally expose a manual toggle — see base.css.) */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-quick: 1ms; --t-base: 1ms; --t-calm: 1ms; --t-slow: 1ms; --t-draw: 1ms;
+  }
+}

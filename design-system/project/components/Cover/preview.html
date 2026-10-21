@@ -1,0 +1,114 @@
+<!-- @dsCard group="Foundations" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIGIL — Cover</title>
+<link rel="stylesheet" href="../../assets/fonts.css" />
+<link rel="stylesheet" href="../../assets/tokens.css" />
+<link rel="stylesheet" href="../../assets/base.css" />
+<style>
+  body { background: var(--canvas); }
+  .cover-stage {
+    min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+    padding: var(--space-7) var(--space-4);
+  }
+  .cover {
+    width: 100%; max-width: 640px; text-align: center; position: relative;
+  }
+  .cover__texture {
+    position: absolute; inset: -40px -10px auto -10px; height: 220px;
+    display: flex; justify-content: center; gap: var(--space-5); opacity: .5; z-index: 0;
+    filter: saturate(.9);
+  }
+  .cover__texture .ic { opacity: .55; }
+  .cover__body { position: relative; z-index: 1; }
+  .cover__mark {
+    font: 600 56px/1 var(--font-serif); letter-spacing: 10px; text-transform: uppercase;
+    color: var(--ink); margin: 0 0 var(--space-4);
+  }
+  .cover__tagline { font: var(--text-body-lg); color: var(--ink-muted); max-width: 440px; margin: 0 auto var(--space-5); }
+  .cover__chip {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill);
+    background: var(--ice); color: var(--on-ice); font: var(--text-label);
+    margin-bottom: var(--space-7);
+  }
+  .cover__chip b { font-weight: 700; }
+  .palette { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-5); }
+  .swatch { width: 128px; text-align: left; }
+  .swatch__chip { height: 64px; border-radius: var(--radius-lg); box-shadow: var(--shadow-soft); margin-bottom: var(--space-2); border: 1px solid var(--border); }
+  .swatch__name { font: var(--text-label); display: block; }
+  .swatch__use { font: var(--text-caption); display: block; margin-top: 2px; }
+  [data-i] { opacity: 0; }
+  [data-theme-ready] [data-i] { animation: vg-fade-rise var(--t-base) var(--ease-out-arrival) both; }
+</style>
+</head>
+<body>
+  <div class="devbar" role="group" aria-label="Preview controls">
+    <button id="themeBtn" aria-pressed="false"></button>
+  </div>
+
+  <main class="cover-stage">
+    <div class="cover" id="cover">
+      <div class="cover__texture" aria-hidden="true">
+        <span class="ic ic--88 ic--ice"></span>
+        <span class="ic ic--88 ic--ice-strong"></span>
+        <span class="ic ic--88 ic--ice"></span>
+      </div>
+      <div class="cover__body">
+        <h1 class="cover__mark" data-i style="animation-delay:0ms">VIGIL</h1>
+        <p class="cover__tagline" data-i style="animation-delay:70ms">
+          A dignity-first check-in, redesigned to feel steady.
+        </p>
+        <p class="cover__chip" data-i style="animation-delay:140ms">
+          Every decision serves one feeling: <b>steady</b>
+        </p>
+        <div class="palette" id="palette" data-i style="animation-delay:210ms"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../../assets/icons.js"></script>
+  <script>
+    document.querySelectorAll('.cover__texture .ic').forEach((el, i) => {
+      el.appendChild(vgIconEl(['shield', 'moon', 'phone'][i], 44));
+    });
+
+    const PALETTE = [
+      { tok: 'primary', name: 'Primary', use: 'Primary buttons, selected states' },
+      { tok: 'ice', name: 'Ice', use: 'The one repeated calm tint' },
+      { tok: 'ice-strong', name: 'Ice, strong', use: 'Second attention tier' },
+      { tok: 'coral', name: 'Coral', use: 'Urgent / crisis only — never decorative' },
+      { tok: 'panel', name: 'Panel', use: 'Cards, sheets, wells' },
+    ];
+    const paletteEl = document.getElementById('palette');
+    PALETTE.forEach(p => {
+      const sw = document.createElement('div');
+      sw.className = 'swatch';
+      sw.innerHTML = `<div class="swatch__chip" style="background:var(--${p.tok})"></div>
+        <span class="swatch__name">${p.name}</span>
+        <span class="swatch__use t-caption">${p.use}</span>`;
+      paletteEl.appendChild(sw);
+    });
+
+    // theme toggle (dev-only affordance, not part of the product UI)
+    const root = document.documentElement;
+    const btn = document.getElementById('themeBtn');
+    function paintThemeBtn() {
+      const dark = root.getAttribute('data-theme') === 'dark';
+      btn.setAttribute('aria-pressed', String(dark));
+      btn.innerHTML = '';
+      btn.appendChild(vgIconEl('moon', 16));
+      btn.append(dark ? ' Dark' : ' Light');
+    }
+    btn.addEventListener('click', () => {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      paintThemeBtn();
+    });
+    paintThemeBtn();
+    requestAnimationFrame(() => document.body.setAttribute('data-theme-ready', ''));
+  </script>
+</body>
+</html>

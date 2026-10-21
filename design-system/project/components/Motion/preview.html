@@ -1,0 +1,381 @@
+<!-- @dsCard group="Foundations" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIGIL — Motion</title>
+<link rel="stylesheet" href="../../assets/fonts.css" />
+<link rel="stylesheet" href="../../assets/tokens.css" />
+<link rel="stylesheet" href="../../assets/base.css" />
+<style>
+  body { background: var(--canvas); padding: var(--space-7) var(--space-5); }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  .intro { max-width: 680px; margin-bottom: var(--space-7); }
+  .intro h1 { margin-bottom: var(--space-3); }
+  section { margin-bottom: var(--space-7); }
+  section > h2 { margin-bottom: var(--space-4); }
+
+  .curves { display: flex; gap: var(--space-6); flex-wrap: wrap; }
+  .curve-card { width: 220px; }
+  .curve-card svg { width: 100%; height: 140px; background: var(--panel); border-radius: var(--radius-md); }
+  .curve-card .t-label { display: block; margin-top: var(--space-3); }
+
+  .durations { display: flex; flex-direction: column; gap: var(--space-3); max-width: 520px; }
+  .duration-row { display: flex; align-items: center; gap: var(--space-4); }
+  .duration-row .name { width: 72px; flex-shrink: 0; }
+  .duration-row .bar-track { flex: 1; height: 10px; background: var(--border); border-radius: var(--radius-pill); overflow: hidden; }
+  .duration-row .bar-fill { height: 100%; background: var(--primary); border-radius: var(--radius-pill); }
+  .duration-row .ms { width: 56px; text-align: right; flex-shrink: 0; }
+
+  .demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-5); }
+  .demo-card { display: flex; flex-direction: column; gap: var(--space-4); min-height: 280px; }
+  .demo-card__stage { flex: 1; display: flex; flex-direction: column; justify-content: center; position: relative; min-height: 150px; }
+
+  /* --- submit demo --- */
+  .submit-summary { display: flex; flex-direction: column; gap: var(--space-2); overflow: hidden; }
+  .submit-summary .row { display: flex; justify-content: space-between; font: var(--text-caption); }
+  .submit-btn { transition: width var(--t-calm) var(--ease-in-place), border-radius var(--t-calm) var(--ease-in-place); width: 100%; margin-top: var(--space-4); position: relative; overflow: visible; }
+  .submit-btn.is-circle { width: 56px; padding: 0; margin-inline: auto; }
+  .submit-btn svg.check { width: 24px; height: 24px; }
+  .submit-btn svg.check path { stroke-dasharray: 36; stroke-dashoffset: 36; }
+  .submit-btn.is-done svg.check path { animation: vg-check-draw var(--t-slow) var(--ease-out-arrival) forwards; }
+  .submit-halo { position: absolute; inset: 0; margin: auto; width: 56px; height: 56px; border-radius: 50%; pointer-events: none; }
+  .submit-btn.is-done .submit-halo { animation: vg-ice-halo var(--t-slow) var(--ease-out-arrival) forwards; }
+  .submit-confirm { text-align: center; margin-top: var(--space-4); opacity: 0; }
+  .submit-confirm.show { animation: vg-fade-rise var(--t-base) var(--ease-out-arrival) both; }
+  .submit-summary.collapsed .row { animation: vg-collapse var(--t-base) var(--ease-in-place) forwards; }
+
+  /* --- alert demo --- */
+  .alert-row {
+    display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3);
+    background: var(--canvas); border: 1px solid var(--border); border-radius: var(--radius-md);
+    margin-bottom: var(--space-2); opacity: 0;
+  }
+  .alert-row.show { animation: vg-fade-rise-sm var(--t-base) var(--ease-out-arrival) both; }
+  .alert-row.collapsing { animation: vg-collapse var(--t-base) var(--ease-in-place) forwards; }
+  .alert-row .tag { font: var(--text-caption); padding: 2px 8px; border-radius: var(--radius-sm); flex-shrink: 0; }
+  .alert-row .tag.urgent { background: var(--coral-tint); color: var(--coral-ink); }
+  .alert-row .tag.elevated { background: var(--ice-strong); color: var(--on-ice); }
+  .alert-row .label { flex: 1; font: var(--text-caption); }
+  .alert-row button { font: var(--text-caption); color: var(--ink-muted); text-decoration: underline; flex-shrink: 0; }
+  .alert-row.flash { animation: vg-flash var(--t-base) var(--ease-out-arrival); }
+  .undo-toast {
+    position: absolute; left: 0; right: 0; bottom: -8px; display: flex; justify-content: space-between;
+    align-items: center; gap: var(--space-3); background: var(--ink); color: var(--canvas);
+    padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); transform: translateY(16px); opacity: 0;
+    pointer-events: none; transition: transform var(--t-base) var(--ease-out-arrival), opacity var(--t-base) var(--ease-out-arrival);
+  }
+  .undo-toast.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+  .undo-toast button { color: var(--ice); text-decoration: underline; }
+
+  /* --- trend demo --- */
+  .trend-chart { width: 100%; height: 160px; }
+  .trend-band { opacity: 0; transition: opacity var(--t-base) var(--ease-out-arrival); }
+  .trend-band.show { opacity: 1; }
+  .trend-line { stroke-dasharray: 420; stroke-dashoffset: 420; }
+  .trend-line.draw { animation: vg-trend-draw var(--t-draw) var(--ease-out-arrival) forwards; }
+  @keyframes vg-trend-draw { to { stroke-dashoffset: 0; } }
+  .trend-dot { opacity: 0; }
+  .trend-dot.show { animation: vg-fade-rise-sm var(--t-quick) var(--ease-out-arrival) both; }
+
+  /* --- sync demo (shares SyncStatus pill markup) --- */
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+    border-radius: var(--radius-pill); background: var(--canvas); border: 1px solid var(--border);
+  }
+  .pill__ring-wrap { position: relative; width: 28px; height: 28px; }
+  .pill__ring { position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--ice-strong); opacity: 0; }
+  .pill.is-syncing .pill__ring { animation: vg-breathe var(--t-breathe) var(--ease-in-place) infinite; }
+  .pill[data-reduced] .pill__ring { animation: none; opacity: .55; }
+  .pill__text { font: var(--text-caption); color: var(--ink-muted); }
+
+  :root[data-motion="reduced"] { --t-quick: 1ms; --t-base: 1ms; --t-calm: 1ms; --t-slow: 1ms; --t-draw: 1ms; }
+</style>
+</head>
+<body>
+  <div class="devbar">
+    <button id="motionBtn" aria-pressed="false"></button>
+    <button id="themeBtn" aria-pressed="false"></button>
+  </div>
+  <div class="wrap">
+    <div class="intro vg-animate-in">
+      <h1 class="t-title">Motion</h1>
+      <p class="t-body ink-muted">Confirms, never performs. Two easings, five durations, and four sequences — replay each one, and compare against reduced motion using the toggle above.</p>
+    </div>
+
+    <section>
+      <h2 class="t-heading">Easings</h2>
+      <div class="curves" id="curves"></div>
+    </section>
+
+    <section>
+      <h2 class="t-heading">Durations</h2>
+      <div class="durations" id="durations"></div>
+    </section>
+
+    <section>
+      <h2 class="t-heading">Sequences</h2>
+      <div class="demo-grid">
+
+        <div class="card demo-card">
+          <div>
+            <span class="t-label">Submit</span>
+            <p class="t-caption">Button narrows to a circle, a check draws, one halo pulses, the summary collapses.</p>
+          </div>
+          <div class="demo-card__stage">
+            <div class="submit-summary" id="submitSummary">
+              <div class="row"><span>Slept</span><span>Poorly</span></div>
+              <div class="row"><span>Felt safe</span><span>A little</span></div>
+            </div>
+            <button class="btn btn--primary submit-btn" id="submitBtn" type="button">
+              <span class="submit-btn__label">Save my check-in</span>
+              <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M20 6 9 17l-5-5"/></svg>
+              <span class="submit-halo" aria-hidden="true"></span>
+            </button>
+            <p class="t-caption submit-confirm" id="submitConfirm">Saved on this device.</p>
+          </div>
+          <button class="btn btn--outline" id="submitReplay" type="button">Replay</button>
+        </div>
+
+        <div class="card demo-card">
+          <div>
+            <span class="t-label">Alert queue</span>
+            <p class="t-caption">Severity-ordered stagger on arrival. Acknowledge collapses a row; Undo restores it with one flash.</p>
+          </div>
+          <div class="demo-card__stage" style="position:relative;">
+            <div id="alertRows"></div>
+            <div class="undo-toast" id="undoToast">
+              <span class="t-caption" style="color:inherit">Acknowledged</span>
+              <button type="button" id="undoBtn">Undo</button>
+            </div>
+          </div>
+          <button class="btn btn--outline" id="alertReplay" type="button">Replay</button>
+        </div>
+
+        <div class="card demo-card">
+          <div>
+            <span class="t-label">Trend draw-in</span>
+            <p class="t-caption">Baseline band eases open, the line draws over 1400ms, points appear along the stroke.</p>
+          </div>
+          <div class="demo-card__stage">
+            <svg class="trend-chart" viewBox="0 0 400 160" id="trendSvg">
+              <rect class="trend-band" x="0" y="58" width="400" height="44" fill="var(--ice)" rx="8"></rect>
+              <path class="trend-line" d="M10,96 C 60,88 100,70 140,80 S 220,78 260,55 S 340,30 390,20" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round"></path>
+            </svg>
+          </div>
+          <button class="btn btn--outline" id="trendReplay" type="button">Replay</button>
+        </div>
+
+        <div class="card demo-card">
+          <div>
+            <span class="t-label">Sync breathing ring</span>
+            <p class="t-caption">The one continuous loop in the system, besides the voice waveform — only while syncing is actually happening.</p>
+          </div>
+          <div class="demo-card__stage" style="align-items:center;">
+            <div class="pill" id="syncPill">
+              <span class="pill__ring-wrap"><span class="ic ic--28 ic--ice" id="syncIcon"></span><span class="pill__ring"></span></span>
+              <span class="pill__text" id="syncText">Saved on this device</span>
+            </div>
+          </div>
+          <button class="btn btn--outline" id="syncReplay" type="button">Start syncing</button>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <script src="../../assets/icons.js"></script>
+  <script>
+    // ---------- easing curve visuals ----------
+    const EASINGS = [
+      { name: 'ease-out-arrival', p1: [.22, .61], p2: [.36, 1] },
+      { name: 'ease-in-place', p1: [.45, .05], p2: [.25, 1] },
+    ];
+    const curvesEl = document.getElementById('curves');
+    EASINGS.forEach(e => {
+      const [x1, y1] = e.p1, [x2, y2] = e.p2;
+      const path = `M0,100 C ${x1 * 100},${100 - y1 * 100} ${x2 * 100},${100 - y2 * 100} 100,0`;
+      const card = document.createElement('div');
+      card.className = 'curve-card';
+      card.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">
+          <line x1="0" y1="0" x2="0" y2="100" stroke="var(--border)" />
+          <line x1="0" y1="100" x2="100" y2="100" stroke="var(--border)" />
+          <path d="${path}" fill="none" stroke="var(--primary)" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <span class="t-label">${e.name}</span>
+        <span class="t-caption">cubic-bezier(${x1},${y1},${x2},${y2})</span>`;
+      curvesEl.appendChild(card);
+    });
+
+    // ---------- duration bars ----------
+    const DURATIONS = [
+      { name: 'quick', ms: 160 }, { name: 'base', ms: 320 }, { name: 'calm', ms: 520 },
+      { name: 'slow', ms: 900 }, { name: 'draw', ms: 1400 },
+    ];
+    const durationsEl = document.getElementById('durations');
+    DURATIONS.forEach(d => {
+      const row = document.createElement('div');
+      row.className = 'duration-row';
+      row.innerHTML = `<span class="t-label name">${d.name}</span>
+        <span class="bar-track"><span class="bar-fill" style="width:${(d.ms / 1400) * 100}%"></span></span>
+        <span class="t-caption ms">${d.ms}ms</span>`;
+      durationsEl.appendChild(row);
+    });
+
+    function msVar(name) {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v.endsWith('ms') ? parseFloat(v) : parseFloat(v) * 1000;
+    }
+
+    // ---------- submit demo ----------
+    const submitBtn = document.getElementById('submitBtn');
+    const submitLabel = submitBtn.querySelector('.submit-btn__label');
+    const submitCheck = submitBtn.querySelector('.check');
+    const submitSummary = document.getElementById('submitSummary');
+    const submitConfirm = document.getElementById('submitConfirm');
+
+    function resetSubmit() {
+      submitBtn.className = 'btn btn--primary submit-btn';
+      submitLabel.style.display = '';
+      submitCheck.style.display = 'none';
+      submitSummary.className = 'submit-summary';
+      submitConfirm.className = 't-caption submit-confirm';
+    }
+    function runSubmit() {
+      resetSubmit();
+      const calm = msVar('--t-calm'), slow = msVar('--t-slow'), base = msVar('--t-base');
+      submitBtn.classList.add('is-circle');
+      setTimeout(() => {
+        submitLabel.style.display = 'none';
+        submitCheck.style.display = '';
+        submitBtn.classList.add('is-done');
+      }, calm);
+      setTimeout(() => { submitSummary.classList.add('collapsed'); }, calm + slow * 0.5);
+      setTimeout(() => { submitConfirm.classList.add('show'); }, calm + slow * 0.5 + base);
+    }
+    document.getElementById('submitBtn').addEventListener('click', runSubmit);
+    document.getElementById('submitReplay').addEventListener('click', runSubmit);
+    resetSubmit();
+
+    // ---------- alert demo ----------
+    const ALERTS = [
+      { tier: 'urgent', label: 'Reach out today' },
+      { tier: 'elevated', label: 'Reach out this week' },
+      { tier: 'elevated', label: 'Keep an eye on' },
+    ];
+    const alertRowsEl = document.getElementById('alertRows');
+    const undoToast = document.getElementById('undoToast');
+    let lastRemoved = null;
+
+    function buildAlertRows() {
+      alertRowsEl.innerHTML = '';
+      ALERTS.forEach((a, i) => {
+        const row = document.createElement('div');
+        row.className = 'alert-row';
+        row.style.animationDelay = (i * 70) + 'ms';
+        row.innerHTML = `<span class="tag ${a.tier}">${a.tier}</span><span class="label">${a.label}</span><button type="button">Acknowledge</button>`;
+        row.querySelector('button').addEventListener('click', () => acknowledge(row, a));
+        alertRowsEl.appendChild(row);
+        requestAnimationFrame(() => row.classList.add('show'));
+      });
+      undoToast.classList.remove('show');
+    }
+    function acknowledge(row, data) {
+      row.classList.add('collapsing');
+      lastRemoved = { row, data, index: [...alertRowsEl.children].indexOf(row) };
+      setTimeout(() => row.remove(), msVar('--t-base'));
+      undoToast.classList.add('show');
+      clearTimeout(acknowledge._t);
+      acknowledge._t = setTimeout(() => undoToast.classList.remove('show'), 3000);
+    }
+    document.getElementById('undoBtn').addEventListener('click', () => {
+      if (!lastRemoved) return;
+      undoToast.classList.remove('show');
+      const row = document.createElement('div');
+      row.className = 'alert-row show flash';
+      row.innerHTML = `<span class="tag ${lastRemoved.data.tier}">${lastRemoved.data.tier}</span><span class="label">${lastRemoved.data.label}</span><button type="button">Acknowledge</button>`;
+      row.querySelector('button').addEventListener('click', () => acknowledge(row, lastRemoved.data));
+      alertRowsEl.insertBefore(row, alertRowsEl.children[lastRemoved.index] || null);
+      lastRemoved = null;
+    });
+    document.getElementById('alertReplay').addEventListener('click', buildAlertRows);
+    buildAlertRows();
+
+    // ---------- trend demo ----------
+    const trendBand = document.querySelector('.trend-band');
+    const trendLine = document.querySelector('.trend-line');
+    function runTrend() {
+      trendBand.classList.remove('show');
+      trendLine.classList.remove('draw');
+      document.querySelectorAll('.trend-dot').forEach(d => d.remove());
+      void trendBand.offsetWidth;
+      trendBand.classList.add('show');
+      trendLine.classList.add('draw');
+      const pts = [[10,96],[140,80],[260,55],[390,20]];
+      const draw = msVar('--t-draw');
+      pts.forEach((p, i) => {
+        setTimeout(() => {
+          const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          dot.setAttribute('cx', p[0]); dot.setAttribute('cy', p[1]); dot.setAttribute('r', 5);
+          dot.setAttribute('fill', 'var(--primary)');
+          dot.classList.add('trend-dot');
+          document.getElementById('trendSvg').appendChild(dot);
+          requestAnimationFrame(() => dot.classList.add('show'));
+        }, (draw / (pts.length - 1 || 1)) * i);
+      });
+    }
+    document.getElementById('trendReplay').addEventListener('click', runTrend);
+    runTrend();
+
+    // ---------- sync demo ----------
+    const syncPill = document.getElementById('syncPill');
+    const syncIcon = document.getElementById('syncIcon');
+    const syncText = document.getElementById('syncText');
+    const syncReplay = document.getElementById('syncReplay');
+    function setSync(state) {
+      syncPill.classList.toggle('is-syncing', state === 'syncing');
+      syncIcon.innerHTML = '';
+      if (state === 'saved') { syncIcon.className = 'ic ic--28 ic--ice'; syncIcon.appendChild(vgIconEl('device', 14)); syncText.textContent = 'Saved on this device'; }
+      else if (state === 'syncing') { syncIcon.className = 'ic ic--28 ic--ice'; syncIcon.appendChild(vgIconEl('sync', 14)); syncText.textContent = 'Syncing quietly'; }
+      else { syncIcon.className = 'ic ic--28 ic--primary'; syncIcon.appendChild(vgIconEl('check', 14)); syncText.textContent = 'Synced'; }
+    }
+    syncReplay.addEventListener('click', () => {
+      setSync('saved');
+      setTimeout(() => setSync('syncing'), 400);
+      setTimeout(() => setSync('synced'), 400 + (motionReduced ? 300 : 4200));
+    });
+    setSync('saved');
+
+    // ---------- motion + theme toggles ----------
+    const root = document.documentElement;
+    let motionReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const motionBtn = document.getElementById('motionBtn');
+    function paintMotionBtn() {
+      root.setAttribute('data-motion', motionReduced ? 'reduced' : 'full');
+      motionBtn.setAttribute('aria-pressed', String(motionReduced));
+      motionBtn.innerHTML = '';
+      motionBtn.appendChild(vgIconEl('clock', 16));
+      motionBtn.append(motionReduced ? ' Reduced motion' : ' Full motion');
+      document.querySelectorAll('.pill').forEach(p => p.toggleAttribute('data-reduced', motionReduced));
+    }
+    motionBtn.addEventListener('click', () => { motionReduced = !motionReduced; paintMotionBtn(); });
+    paintMotionBtn();
+
+    const themeBtn = document.getElementById('themeBtn');
+    function paintThemeBtn() {
+      const dark = root.getAttribute('data-theme') === 'dark';
+      themeBtn.setAttribute('aria-pressed', String(dark));
+      themeBtn.innerHTML = '';
+      themeBtn.appendChild(vgIconEl('moon', 16));
+      themeBtn.append(dark ? ' Dark' : ' Light');
+    }
+    themeBtn.addEventListener('click', () => {
+      root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      paintThemeBtn();
+    });
+    paintThemeBtn();
+  </script>
+</body>
+</html>

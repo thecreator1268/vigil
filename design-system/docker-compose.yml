@@ -1,0 +1,19 @@
+# Standalone — intentionally separate from the main VIGIL stack
+# (infra/docker-compose.yml): this is a design reference, not a product
+# service, and keeping it out of the main compose file means it never affects
+# that stack's health-gated startup, CI matrix, or k8s manifests.
+#
+#   docker compose -f design-system/docker-compose.yml up --build
+#   open http://localhost:4600
+name: vigil-design-system
+
+services:
+  design-system:
+    build:
+      context: ..
+      dockerfile: design-system/Dockerfile
+    image: vigil/design-system:dev
+    restart: unless-stopped
+    ports: ["4600:4600"]
+    environment:
+      PORT: 4600
