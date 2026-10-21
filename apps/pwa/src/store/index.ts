@@ -49,6 +49,14 @@ export interface UiSlice {
     /** The "before you start" disclosure in the check-in flow is shown once,
      *  the first time, then never again on this device. */
     checkinIntroSeen: boolean;
+    /** Device-monitoring / cloud-sync trade-off notice, shown once before
+     *  onboarding, then never again on this device. */
+    deviceSafetyNoticeSeen: boolean;
+    /** Opt-in local App Lock. Off by default. The PIN itself is never
+     *  stored — only a salted SHA-256 hash (see features/security/pin.ts). */
+    appLockEnabled: boolean;
+    appLockSalt: string | null;
+    appLockPinHash: string | null;
   };
   setUi: (p: Partial<UiSlice['ui']>) => void;
 }
@@ -80,7 +88,17 @@ const consentSlice: StateCreator<AppState, [], [], ConsentSlice> = (set) => ({
 });
 
 const uiSlice: StateCreator<AppState, [], [], UiSlice> = (set) => ({
-  ui: { onboarded: false, language: 'en', checkInLevel: 'gentle', region: import.meta.env.VITE_DEFAULT_REGION ?? 'pune', checkinIntroSeen: false },
+  ui: {
+    onboarded: false,
+    language: 'en',
+    checkInLevel: 'gentle',
+    region: import.meta.env.VITE_DEFAULT_REGION ?? 'pune',
+    checkinIntroSeen: false,
+    deviceSafetyNoticeSeen: false,
+    appLockEnabled: false,
+    appLockSalt: null,
+    appLockPinHash: null,
+  },
   setUi: (p) => set((s) => ({ ui: { ...s.ui, ...p } })),
 });
 

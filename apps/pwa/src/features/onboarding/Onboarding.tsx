@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { LottieHandle } from 'lottie-react';
 import { useStore } from '../../store';
 import { useTransitionNavigate } from '../../hooks/useTransitionNavigate';
+import { DeviceSafetyNotice } from '../security/DeviceSafetyNotice';
 import { ONBOARDING_ANIMATIONS } from './lottie-glyphs';
 
 // LottieLight: the light player has no expression engine, so no eval() — compatible with a strict CSP.
@@ -20,6 +21,7 @@ export function Onboarding() {
   const { t } = useTranslation();
   const go = useTransitionNavigate();
   const setUi = useStore((s) => s.setUi);
+  const noticeSeen = useStore((s) => s.ui.deviceSafetyNoticeSeen);
   const reduced = useReducedMotion();
   const [i, setI] = useState(0);
   const lottieRef = useRef<LottieHandle>(null);
@@ -36,6 +38,10 @@ export function Onboarding() {
 
   const key = STEPS[i] as (typeof STEPS)[number];
   const last = i === STEPS.length - 1;
+
+  if (!noticeSeen) {
+    return <DeviceSafetyNotice onContinue={() => setUi({ deviceSafetyNoticeSeen: true })} />;
+  }
 
   return (
     <section aria-labelledby="onb-title" className="flex min-h-[60dvh] flex-col">

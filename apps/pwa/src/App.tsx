@@ -6,6 +6,8 @@ import { Frame, VictimShell } from './components/AppShell';
 import { CheckInFlow } from './features/checkin/CheckInFlow';
 import { CrisisResources } from './features/crisis/CrisisResources';
 import { Onboarding } from './features/onboarding/Onboarding';
+import { AppLockGate } from './features/security/AppLockGate';
+import { Settings } from './features/security/Settings';
 import { StaffSignIn } from './features/staff/StaffSignIn';
 import { Home } from './features/victim/Home';
 import { MyEntries } from './features/victim/MyEntries';
@@ -42,7 +44,11 @@ function VictimGate() {
   }, [role]);
 
   if (!onboarded && pathname !== '/help') return <Navigate to="/welcome" replace />;
-  return <Outlet />;
+  return (
+    <AppLockGate>
+      <Outlet />
+    </AppLockGate>
+  );
 }
 
 function StaffGate({ role }: { role: Exclude<Role, 'victim'> }) {
@@ -91,6 +97,7 @@ export function App() {
             <Route path="/entries" element={<MyEntries />} />
             <Route path="/sharing" element={<Sharing />} />
             <Route path="/reminders" element={<Reminders />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>
 

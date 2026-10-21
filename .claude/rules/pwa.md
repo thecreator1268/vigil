@@ -29,3 +29,9 @@ scope: apps/pwa/**
 - Before shipping a UI change, run `pnpm --filter @vigil/pwa typecheck` and
   `PW_CHANNEL=chrome pnpm e2e` against the real docker-compose stack — unit
   tests alone don't catch a11y regressions.
+- Device safety (`features/security/`): no OS push-notification feature
+  exists yet, but if one is added, its visible text (lock-screen preview,
+  notification center) must stay neutral — never name the app, the check-in,
+  or anything that would identify its purpose to someone glancing at the
+  device. Same for any future export/download feature: the file name must be
+  neutral, not something like "vigil-checkin-report.pdf".

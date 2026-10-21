@@ -74,6 +74,7 @@ infra/                    docker-compose.yml, compose.prod.yml (+ Caddy), k8s/ (
 - The case-integration adapter is a clearly labelled mock.
 - The Trivy scan is configured in CI but has not been run locally.
 - Upstream bug found: openapi-fetch's `Readable<>` helper drops `null`-only properties such as `raw_score` from response types. The PWA parses alerts with the shared Zod schema instead, which also rejects any alert carrying a score.
+- Device safety (`apps/pwa/src/features/security`): App Lock is PIN-only — a salted hash, off by default, gating victim routes on open/resume. A passkey option was in scope but deferred: it meaningfully overlaps the production counselor passkey login planned next, and building two independent WebAuthn flows first would mean reconciling them later instead of once. Quick Wipe clears this device's local Dexie store only; it has no effect on anything already synced to a counselor. Neither pre-install warnings (the install prompt itself isn't intercepted) nor OS push-notification text (no push notifications exist in the app yet) are implemented — there's nothing to retrofit yet, so `.claude/rules/pwa.md` carries the requirement for whenever a notification feature is added.
 
 ## Deploying to Kubernetes
 

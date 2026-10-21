@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiEdit3, FiHome, FiLifeBuoy, FiList, FiShield, FiWifiOff } from 'react-icons/fi';
+import { FiEdit3, FiHome, FiLifeBuoy, FiList, FiSettings, FiShield, FiWifiOff } from 'react-icons/fi';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { DemoBar } from '../demo/DemoBar';
 import { CrisisBar } from '../features/crisis/CrisisBar';
@@ -25,6 +25,21 @@ function LanguageToggle() {
       className="rounded-full border border-ice-300 px-3 py-1 text-xs font-medium text-navy-700 hover:bg-ice-50"
     >
       {t('common.language')}
+    </button>
+  );
+}
+
+function SettingsLink() {
+  const { t } = useTranslation();
+  const go = useTransitionNavigate();
+  return (
+    <button
+      type="button"
+      onClick={() => go('/settings')}
+      aria-label={t('common.settingsLabel')}
+      className="rounded-full p-2 text-navy-700 hover:bg-ice-50"
+    >
+      <FiSettings aria-hidden className="text-lg" />
     </button>
   );
 }
@@ -66,6 +81,7 @@ export function VictimShell() {
   const { t } = useTranslation();
   return (
     <Frame
+      headerActions={<SettingsLink />}
       nav={
         <nav aria-label={t('nav.main')} className="sticky bottom-0 z-30 border-t border-ice-300 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-3xl">
@@ -82,7 +98,17 @@ export function VictimShell() {
 }
 
 /** Shared frame: the crisis bar is part of EVERY layout. */
-export function Frame({ nav, wide = false, title }: { nav?: ReactNode; wide?: boolean; title?: ReactNode }) {
+export function Frame({
+  nav,
+  wide = false,
+  title,
+  headerActions,
+}: {
+  nav?: ReactNode;
+  wide?: boolean;
+  title?: ReactNode;
+  headerActions?: ReactNode;
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex min-h-dvh flex-col">
@@ -94,6 +120,7 @@ export function Frame({ nav, wide = false, title }: { nav?: ReactNode; wide?: bo
           <div className="ml-auto flex items-center gap-2">
             <SyncStatusIndicator />
             <LanguageToggle />
+            {headerActions}
           </div>
         </div>
       </header>

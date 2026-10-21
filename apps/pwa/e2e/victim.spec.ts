@@ -89,7 +89,7 @@ test('Hindi: all victim copy switches language', async ({ page }) => {
 
 test('WCAG 2.1 AA: no axe violations on victim screens', async ({ page }) => {
   await skipOnboarding(page);
-  for (const path of ['/', '/help', '/sharing', '/checkin']) {
+  for (const path of ['/', '/help', '/sharing', '/checkin', '/settings']) {
     await page.goto(path);
     await page.waitForLoadState('networkidle');
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();

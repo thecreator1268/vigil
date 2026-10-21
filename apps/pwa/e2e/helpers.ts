@@ -3,6 +3,9 @@ import { expect, type Page } from '@playwright/test';
 export async function skipOnboarding(page: Page) {
   await page.goto('/');
   await expect(page).toHaveURL(/\/welcome$/);
+  // The device-safety notice shows once, before the carousel, on a fresh device.
+  const continueNotice = page.getByRole('button', { name: 'I understand — continue' });
+  if (await continueNotice.isVisible().catch(() => false)) await continueNotice.click();
   await page.getByRole('button', { name: 'Skip' }).click();
   await expect(page.getByRole('heading', { name: 'Hello. How are you doing today?' })).toBeVisible();
 }
