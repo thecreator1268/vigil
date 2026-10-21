@@ -133,6 +133,19 @@ jobs:
       - run: pnpm secrets:dev
       - name: Bring the stack up (health-gated)
         run: docker compose up --build --detach --wait --wait-timeout 300
+      - name: Verify every container is actually healthy
+        # `--wait` already blocks on the depends_on health graph above, but
+        # assert it explicitly so a bad assumption fails here, loudly, with
+        # the full container list — not as a mystifying timeout three steps
+        # later in Playwright.
+        run: |
+          docker compose ps --all
+          unhealthy=$(docker compose ps --format '{{.Health}}' | grep -v -E '^(healthy|)$' || true)
+          if [ -n "$unhealthy" ]; then
+            echo "::error::One or more containers are not healthy"
+            docker compose logs --no-color
+            exit 1
+          fi
       - name: API smoke test through the gateway (TLS 1.3)
         run: NODE_EXTRA_CA_CERTS=secrets/tls_cert.pem node scripts/smoke.mjs
       - run: pnpm --filter @vigil/pwa exec playwright install --with-deps chromium
