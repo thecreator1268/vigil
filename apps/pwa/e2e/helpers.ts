@@ -13,8 +13,22 @@ export async function checkIn(page: Page, opts: { answers?: (number | 'skip')[];
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Check in' }).click();
   // The "before you start" disclosure only shows the first time on a device —
   // skip the click if a prior check-in in this test already passed it.
+  //
+  // locator.isVisible() does NOT wait — Playwright's own docs for it say so
+  // verbatim ("does not wait for the element to become visible and returns
+  // immediately"). Checked right after the nav click, it can read `false`
+  // before the client-side route has rendered anything yet, which this code
+  // used to read as "disclosure already seen" and skip clicking Start —
+  // stranding the flow on the disclosure step forever, since Start is the
+  // only way off it. "Question 1 of N" (asserted in the loop below) then
+  // never appears, and the test times out on that assertion instead of here
+  // — this is what failed on main in CI run #12 (commit 27508fb), on every
+  // test that calls checkIn(), and only those. Waiting on the real state
+  // (either element actually on screen) before branching removes the race.
   const start = page.getByRole('button', { name: 'Start' });
-  if (await start.isVisible().catch(() => false)) await start.click();
+  const firstQuestion = page.getByText(`Question 1 of ${answers.length}`);
+  await expect(start.or(firstQuestion)).toBeVisible();
+  if (await start.isVisible()) await start.click();
   for (const [i, a] of answers.entries()) {
     await expect(page.getByText(`Question ${i + 1} of ${answers.length}`)).toBeVisible();
     if (a === 'skip') await page.getByRole('button', { name: 'Skip this one' }).click();

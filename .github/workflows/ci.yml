@@ -164,6 +164,7 @@ jobs:
           name: e2e-report
           path: |
             apps/pwa/playwright-report
+            apps/pwa/test-results
             compose-logs.txt
       - if: always()
         run: docker compose down -v

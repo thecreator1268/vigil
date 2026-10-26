@@ -19,7 +19,10 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173',
-    trace: process.env.CI ? 'on-first-retry' : 'retain-on-failure',
+    // 'on-first-retry' would drop the trace for a test that only fails on
+    // its LAST attempt (e.g. retry2, as happened in CI run #12) — keep
+    // every failing attempt's trace, not just the first.
+    trace: 'retain-on-failure',
     serviceWorkers: 'allow',
   },
   projects: [
