@@ -62,10 +62,15 @@ export interface BuildServerOptions {
    * Fastify's `trustProxy` — governs how `req.ip` is resolved from
    * X-Forwarded-For. Only the gateway needs this (for IP-keyed rate
    * limiting on pre-auth endpoints); every other service sits behind the
-   * gateway's internal-token check instead. Default false (trust nothing,
-   * use the raw socket address) — safe default for services that don't ask.
+   * gateway's internal-token check instead.
+   *
+   * Pass the EXACT address(es) of the known proxy hop(s) in front of this
+   * service (never `true`, which trusts every hop unconditionally and lets
+   * anyone who can reach this process directly forge X-Forwarded-For).
+   * Default false (trust nothing, use the raw socket address) — safe
+   * default for services that don't ask, and safe when unset here too.
    */
-  trustProxy?: boolean;
+  trustProxy?: boolean | string | string[];
 }
 
 function tokenMatches(expected: string, given: string | undefined): boolean {

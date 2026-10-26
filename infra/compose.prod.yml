@@ -32,6 +32,11 @@ services:
       JWT_ISSUER: ${JWT_ISSUER:?set JWT_ISSUER to your OIDC issuer}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-vigil-api}
       NODE_ENV: production
+      # pwa (always the immediate hop) AND ingress (appears as the next
+      # entry in X-Forwarded-For, appended by pwa's own proxy) — both are
+      # pinned static addresses below, not a subnet. See
+      # docs/design/counselor-passkey-login.md §5 (review point 1).
+      TRUSTED_PROXY_ADDRESSES: "172.28.0.10,172.28.0.20"
     deploy:
       replicas: 2
       resources:
@@ -84,7 +89,9 @@ services:
     profiles: [production]
     restart: always
     ports: ["80:80", "443:443"]
-    networks: [edge]
+    # Pinned: this address is what the gateway trusts as the OUTER hop in
+    # X-Forwarded-For (TRUSTED_PROXY_ADDRESSES on gateway, above).
+    networks: { edge: { ipv4_address: 172.28.0.20 } }
     depends_on:
       pwa: { condition: service_healthy }
     environment:

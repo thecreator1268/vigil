@@ -24,6 +24,7 @@ async function main() {
     // from the generic /v1/ loop since it's pre-authentication.
     counselorIdentityUrl: upstreams['counselor-identity-service'],
     nodeEnv: process.env.NODE_ENV,
+    trustedProxies: process.env.TRUSTED_PROXY_ADDRESSES?.split(',').map((s) => s.trim()).filter(Boolean),
     https: certPath && keyPath ? { cert: readFileSync(certPath, 'utf8'), key: readFileSync(keyPath, 'utf8') } : undefined,
     rateLimit: { max: Number(process.env.RATE_LIMIT_MAX ?? 120), timeWindow: process.env.RATE_LIMIT_WINDOW ?? '1 minute' },
     onUnhandledError: errorReporter.capture,

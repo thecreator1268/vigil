@@ -240,3 +240,42 @@ describe('rate limiting throttles, never locks out (change 2)', () => {
     // this module has no "disabled"/"locked" field on a credential at all).
   });
 });
+
+describe('x-vigil-client-ip: the gateway-forwarded address, not a client-supplied one, drives both the limiter and the audit log (review point 1)', () => {
+  it('the audit log on a failed login records x-vigil-client-ip, exactly as forwarded — proving the field exists and is populated', async () => {
+    const { app, repo } = await buildTestApp();
+    const { authenticator } = await enroll(app, repo, 'c_1');
+    const impostor = await createFakeAuthenticator(authenticator.credentialId);
+    const optionsRes = await app.inject({ method: 'POST', url: '/auth/passkey/login/options' });
+    const { attemptId, options } = optionsRes.json();
+    const credential = await fakeAuthenticationResponse({ rpId: RP_ID, origin: ORIGIN, challenge: options.challenge, authenticator: impostor });
+    await app.inject({
+      method: 'POST', url: '/auth/passkey/login/verify', payload: { attemptId, credential },
+      headers: { 'x-vigil-client-ip': '203.0.113.55' }, // as the gateway would set it
+    });
+    const audit = (repo as ReturnType<typeof memoryRepo>)._audit;
+    const entry = audit.find((e) => e.action === 'login_failed');
+    expect(entry?.detail.clientIp).toBe('203.0.113.55');
+  });
+
+  it('the per-IP throttle keys on x-vigil-client-ip, not the raw connection — two different forwarded clients are NOT bucketed together', async () => {
+    const { app } = await buildTestApp();
+    // A fresh, never-registered credential id per attempt, so the separate
+    // per-CREDENTIAL throttle (a tighter 5/min budget) never interferes —
+    // this test isolates the per-IP budget (20/min) specifically.
+    const attempt = async (clientIp: string) => {
+      const optionsRes = await app.inject({ method: 'POST', url: '/auth/passkey/login/options' });
+      const { attemptId, options } = optionsRes.json();
+      const phantom = await createFakeAuthenticator();
+      const credential = await fakeAuthenticationResponse({ rpId: RP_ID, origin: ORIGIN, challenge: options.challenge, authenticator: phantom });
+      return app.inject({
+        method: 'POST', url: '/auth/passkey/login/verify', payload: { attemptId, credential },
+        headers: { 'x-vigil-client-ip': clientIp },
+      });
+    };
+    // Exhaust client A's per-IP budget (20/min) — all fail as unknown_credential (401), not rate limit yet.
+    for (let i = 0; i < 20; i++) expect((await attempt('203.0.113.1')).statusCode).toBe(401);
+    expect((await attempt('203.0.113.1')).statusCode).toBe(429); // client A now throttled
+    expect((await attempt('203.0.113.2')).statusCode).toBe(401); // client B unaffected — still reaches verification, not 429
+  });
+});

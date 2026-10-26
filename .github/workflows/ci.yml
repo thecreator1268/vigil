@@ -42,6 +42,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
 
+      - name: Dev identity provider must never be reachable in production
+        run: node scripts/check-no-dev-idp-in-prod.mjs
+
       # scoring-engine enforces 100% branch/line/function/statement coverage
       # via vitest thresholds; the job fails below that.
       - name: Unit + contract tests
@@ -74,6 +77,7 @@ jobs:
           - { image: alert-service, dockerfile: services/alert-service/Dockerfile }
           - { image: reminder-service, dockerfile: services/reminder-service/Dockerfile }
           - { image: case-integration-service, dockerfile: services/case-integration-service/Dockerfile }
+          - { image: counselor-identity-service, dockerfile: services/counselor-identity-service/Dockerfile }
           - { image: dev-idp, dockerfile: services/dev-idp/Dockerfile }
           - { image: pwa, dockerfile: apps/pwa/Dockerfile }
     steps:

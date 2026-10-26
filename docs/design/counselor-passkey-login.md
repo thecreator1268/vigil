@@ -1,10 +1,42 @@
 # Design note: counselor passkey (WebAuthn) login
 
-**Status: approved with 8 required changes (below), now implemented.** Scope
-is strictly counselor identity — replacing `services/dev-idp` in production
-for the `counselor` role only. RS256 JWTs, the RBAC model, and what any role
-can see are all unchanged; admin *login* stays out of scope (see §7) — but
-see §4 for how recovery approval is handled without it.
+**Status: second review round — not yet merge-ready, 5 items required
+before merge (below).** Scope is strictly counselor identity — replacing
+`services/dev-idp` in production for the `counselor` role only. RS256 JWTs,
+the RBAC model, and what any role can see are all unchanged; admin *login*
+stays out of scope (see §7) — but see §4 for how recovery approval is
+handled without it.
+
+## Second review round (not yet merge-ready)
+
+1. **`trustProxy: true` trusted every hop — fixed to an exact, pinned
+   address list.** Confirmed the gateway IS reachable without going through
+   Caddy or the PWA proxy: `infra/docker-compose.yml` (the dev/CI stack)
+   publishes its port directly (`ports: ["8080:8080"]`, for
+   `scripts/smoke.mjs` and debugging) — production removes this entirely
+   (`ports: !reset []`). `trustProxy` is now `o.trustedProxies`, an exact
+   address list (never a subnet, never `true`): `apps/pwa`'s container gets a
+   **pinned static IP** on the `edge` network (`infra/docker-compose.yml`),
+   and in production Caddy's `ingress` gets one too
+   (`infra/compose.prod.yml`), passed via `TRUSTED_PROXY_ADDRESSES`.
+   Confirmed (via Docker's own documented NAT behavior, not assumed) that a
+   request hitting the gateway's published port directly arrives with the
+   Docker bridge/NAT gateway address as its source — never equal to a
+   pinned container's own address — so its forged `X-Forwarded-For` is
+   correctly ignored and its real (NAT'd) address is used instead. New
+   gateway tests (`services/gateway/test/gateway.test.ts`) prove: a forged
+   header from an untrusted direct connection is ignored; two forged headers
+   from the *same* untrusted real address are correctly bucketed together
+   (forging can't evade the limiter); and the gateway's own resolved address
+   is forwarded downstream as `x-vigil-client-ip` — a header the client
+   cannot set itself (stripped from client input, always overwritten). That
+   header now drives `counselor-identity-service`'s per-IP throttle *and*
+   every audit-log entry — not `req.ip` there, which would always be the
+   gateway's own address. See §5.
+2. **CI check for the dev-provider override.** See the project's `.github/workflows/ci.yml` addition, shown in full in the PR summary.
+3. **Operator-token comparison and audit coverage — confirmed.** `verifyToken()` (`src/tokens.ts`) uses `node:crypto`'s `timingSafeEqual` on equal-length derived scrypt hashes — constant-time. Operator-token creation, use (every `/internal/ops/*` call that authenticates one), and failure are now all written to `audit_log`.
+4. **What could not be run** — see the PR summary's dedicated section; exact commands and pass criteria included.
+5. **Independent review requested** — see the PR summary's security-decision checklist; this note does not claim to have reviewed itself.
 
 ## Changes required on review, and how each was resolved
 

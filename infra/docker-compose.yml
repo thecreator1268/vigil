@@ -56,6 +56,13 @@ services:
       TLS_CERT_PATH: /run/secrets/tls_cert
       TLS_KEY_PATH: /run/secrets/tls_key
       DEV_IDP_URL: http://dev-idp:3000
+      # ONLY pwa's pinned address — not a subnet, not `true`. No Caddy hop in
+      # this (non-production) stack. A request that reaches the gateway
+      # directly (its port is published for scripts/smoke.mjs) arrives from
+      # Docker's NAT/bridge gateway address, never equal to this exact pinned
+      # address, so its X-Forwarded-For is correctly ignored. See
+      # docs/design/counselor-passkey-login.md §5 (review point 1).
+      TRUSTED_PROXY_ADDRESSES: "172.28.0.10"
     secrets: [jwt_public_key, internal_token, tls_cert, tls_key]
 
   checkin-service:
@@ -165,7 +172,11 @@ services:
     image: vigil/pwa:dev
     restart: unless-stopped
     ports: ["5173:5173"]
-    networks: [edge]
+    # Pinned, not auto-assigned: the gateway trusts X-Forwarded-For ONLY from
+    # this exact address (TRUSTED_PROXY_ADDRESSES below) — a fixed IP is what
+    # makes that a real, checkable boundary instead of "whichever address
+    # Compose happens to hand out". See docs/design/counselor-passkey-login.md §5.
+    networks: { edge: { ipv4_address: 172.28.0.10 } }
     depends_on:
       gateway: { condition: service_healthy }
     environment:
@@ -183,7 +194,12 @@ services:
     ports: ["16686:16686"]
 
 networks:
-  edge: {}
+  # Fixed subnet so pwa's ipv4_address above (and, in compose.prod.yml,
+  # ingress's) are real, checkable addresses, not whatever Compose
+  # auto-assigns — trustedProxies on the gateway depends on this.
+  edge:
+    ipam:
+      config: [{ subnet: 172.28.0.0/24 }]
   # Services and the database are unreachable from the host and the internet.
   internal:
     internal: true

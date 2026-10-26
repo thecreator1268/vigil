@@ -33,10 +33,35 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Dates ar
 - `services/gateway` and `services/dev-idp` now **refuse to boot** (not
   just refuse the route) unless dev tokens are explicitly enabled AND
   `NODE_ENV` is exactly `development` or `test` — any other value,
-  including unset, fails closed. `services/gateway` also now sets
-  `trustProxy: true` so IP-based rate limiting resolves the real client
-  through Caddy + the PWA's same-origin proxy rather than one shared
-  upstream address.
+  including unset, fails closed.
+- A new CI check (`scripts/check-no-dev-idp-in-prod.mjs`, wired into
+  `.github/workflows/ci.yml`) fails the build if `infra/k8s/**` ever
+  references `dev-idp`, or if `infra/compose.prod.yml` (or any other
+  production-labelled compose file) sets `DEV_IDP_ENABLED: true`, points
+  `DEV_IDP_URL` anywhere, or defines a `dev-idp` service not gated behind
+  `profiles: [dev-only]`. Verified against both a clean pass and three
+  deliberately-injected violations (one per check).
+
+### Fixed (second review round)
+- `services/gateway`'s `trustProxy: true` trusted **every** hop
+  unconditionally — including a request that reaches the gateway directly,
+  which the local/CI docker-compose stack allows (its port is published for
+  `scripts/smoke.mjs`). Replaced with an exact, pinned address list
+  (`trustedProxies` / `TRUSTED_PROXY_ADDRESSES`): `apps/pwa`'s container
+  now gets a static IP on a fixed-subnet `edge` network, and in production
+  Caddy's `ingress` gets one too. A direct hit on the gateway's exposed
+  port arrives via Docker's NAT at the bridge gateway address, never equal
+  to either pinned address, so its forged `X-Forwarded-For` is correctly
+  ignored. The gateway now also forwards its own resolved client address
+  downstream as `x-vigil-client-ip` (never client-settable — always
+  overwritten), which `counselor-identity-service`'s per-IP throttle and
+  every audit-log entry now use instead of `req.ip` (which, behind the
+  gateway, would always just be the gateway's own address).
+- Operator-token authentication (`authenticateOperator()`) previously threw
+  on failure with no audit trail at all, and recorded no "token used" entry
+  on success either. Both now write to `audit_log` on every call,
+  success or failure, across all three ops endpoints that authenticate an
+  operator (bootstrap, recovery request, recovery approve).
 - Unit/contract tests for real WebAuthn registration and login round
   trips (`services/counselor-identity-service/test/webauthn-fixture.ts`
   hand-builds cryptographically real ECDSA P-256 ceremony responses — no

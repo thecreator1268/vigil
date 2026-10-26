@@ -82,11 +82,12 @@ describe('RBAC from the contract', () => {
     expect((await get('/v1/victims/v_demo_0001/trend', await token('admin'))).statusCode).toBe(403);
   });
 
-  it('never trusts client-supplied identity headers', async () => {
+  it('never trusts client-supplied identity headers, including a spoofed x-vigil-client-ip', async () => {
     const res = await get('/v1/reminders?victimId=v_demo_0001', await token('victim', 'v_demo_0001'), {
-      'x-vigil-scope': 'counselor', 'x-vigil-subject': 'c_evil', 'x-vigil-internal-token': 'guess',
+      'x-vigil-scope': 'counselor', 'x-vigil-subject': 'c_evil', 'x-vigil-internal-token': 'guess', 'x-vigil-client-ip': '9.9.9.9',
     });
     expect(res.json().headers).toMatchObject({ 'x-vigil-scope': 'victim', 'x-vigil-subject': 'v_demo_0001', 'x-vigil-internal-token': 'internal-secret' });
+    expect(res.json().headers['x-vigil-client-ip']).not.toBe('9.9.9.9');
   });
 
   it('404s routes outside the contract', async () => {
@@ -127,53 +128,88 @@ describe('rate limiting', () => {
 // A production-shaped base: X-Forwarded-For arrives already carrying the
 // real client (as Caddy would set it) followed by one more hop address (as
 // the PWA's own proxy appends, post-fix) — gw.inject's `remoteAddress`
-// simulates the socket address the gateway itself sees (the PWA container).
-describe('trustProxy resolves the real client through the proxy chain', () => {
-  const buildWithIdentity = async (rateLimitMax: number) => {
+// simulates the socket address the gateway itself sees. TRUSTED_HOP is the
+// one address this suite configures as a known proxy — anything else
+// hitting the gateway directly must NOT have its X-Forwarded-For honored.
+const TRUSTED_HOP = '172.28.0.10'; // stands in for the PWA's pinned container address
+describe('trustProxy trusts ONLY the configured exact hop(s) — never every hop (review point 1)', () => {
+  const buildWithIdentity = async (rateLimitMax: number, trustedProxies: string[] | undefined = [TRUSTED_HOP]) => {
     const kp = await generateKeyPair('RS256');
-    return buildGateway({
+    const identityUpstream = Fastify();
+    identityUpstream.post('/*', async (req) => ({ url: req.url, headers: req.headers }));
+    await identityUpstream.listen({ port: 0, host: '127.0.0.1' });
+    const idAddr = identityUpstream.server.address() as { port: number };
+    const gwInstance = await buildGateway({
       jwtPublicKeyPem: await exportSPKI(kp.publicKey),
       issuer: ISS, audience: AUD, internalToken: 'x',
       upstreams: Object.fromEntries(ALL_UPSTREAMS.map((s) => [s, 'http://127.0.0.1:1'])),
-      counselorIdentityUrl: 'http://127.0.0.1:1',
+      counselorIdentityUrl: `http://127.0.0.1:${idAddr.port}`,
+      trustedProxies,
       rateLimit: { max: rateLimitMax, timeWindow: '1 minute' },
       logLevel: 'silent',
     });
+    return { gw: gwInstance, identityUpstream };
   };
 
-  it('two different real clients behind the same immediate proxy hop get independent rate-limit budgets', async () => {
-    const gw2 = await buildWithIdentity(1);
+  it('through the TRUSTED hop, the real client in X-Forwarded-For is resolved — distinct clients get independent rate-limit budgets', async () => {
+    const { gw: gw2, identityUpstream } = await buildWithIdentity(1);
     const req = (clientIp: string) =>
       gw2.inject({
-        method: 'POST',
-        url: '/auth/passkey/login/options',
-        remoteAddress: '172.18.0.5', // the PWA container's address, as the gateway sees it
-        headers: { 'x-forwarded-for': `${clientIp}, 172.18.0.5` },
+        method: 'POST', url: '/auth/passkey/login/options', remoteAddress: TRUSTED_HOP,
+        headers: { 'x-forwarded-for': `${clientIp}, ${TRUSTED_HOP}` },
       });
-    // Each client's FIRST request should not be rate-limited by the other's.
     expect((await req('203.0.113.10')).statusCode).not.toBe(429);
     expect((await req('203.0.113.11')).statusCode).not.toBe(429);
-    // The SAME client's second request, within the same window, now is.
-    expect((await req('203.0.113.10')).statusCode).toBe(429);
+    expect((await req('203.0.113.10')).statusCode).toBe(429); // same client, second hit in window
     await gw2.close();
+    await identityUpstream.close();
   });
 
-  it('without the fix, overwriting X-Forwarded-For would have bucketed every client together — this proves that regression cannot happen', async () => {
-    const gw2 = await buildWithIdentity(1);
-    // Same immediate peer, but each call's X-Forwarded-For already has a
-    // DIFFERENT leftmost (real-client) entry appended with a comma, exactly
-    // as apps/pwa/server/main.js now produces it.
-    const first = await gw2.inject({
-      method: 'POST', url: '/auth/passkey/login/options', remoteAddress: '172.18.0.5',
-      headers: { 'x-forwarded-for': '198.51.100.1, 172.18.0.5' },
+  it('a client that reaches the gateway DIRECTLY (not through the trusted hop) cannot forge X-Forwarded-For — the real socket address is forwarded downstream as x-vigil-client-ip instead', async () => {
+    const { gw: gw2, identityUpstream } = await buildWithIdentity(1);
+    const attackerRealAddress = '198.51.100.99'; // NOT the trusted hop
+    const res = await gw2.inject({
+      method: 'POST', url: '/auth/passkey/login/options', remoteAddress: attackerRealAddress,
+      headers: { 'x-forwarded-for': '1.2.3.4' }, // forged — must be ignored entirely
     });
-    const second = await gw2.inject({
-      method: 'POST', url: '/auth/passkey/login/options', remoteAddress: '172.18.0.5',
-      headers: { 'x-forwarded-for': '198.51.100.2, 172.18.0.5' },
-    });
-    expect(first.statusCode).not.toBe(429);
-    expect(second.statusCode).not.toBe(429);
+    expect(res.statusCode).not.toBe(429);
+    expect(res.json().headers['x-vigil-client-ip']).toBe(attackerRealAddress);
     await gw2.close();
+    await identityUpstream.close();
+  });
+
+  it('two different forged X-Forwarded-For values from the SAME direct (untrusted) attacker address are correctly bucketed TOGETHER — forging the header cannot evade the limiter', async () => {
+    const { gw: gw2, identityUpstream } = await buildWithIdentity(1);
+    const attackerRealAddress = '198.51.100.50';
+    const first = await gw2.inject({ method: 'POST', url: '/auth/passkey/login/options', remoteAddress: attackerRealAddress, headers: { 'x-forwarded-for': '9.9.9.9' } });
+    const second = await gw2.inject({ method: 'POST', url: '/auth/passkey/login/options', remoteAddress: attackerRealAddress, headers: { 'x-forwarded-for': '8.8.8.8' } });
+    expect(first.statusCode).not.toBe(429);
+    expect(second.statusCode).toBe(429); // same real address despite different forged headers
+    await gw2.close();
+    await identityUpstream.close();
+  });
+
+  it('the gateway forwards its OWN resolved address as x-vigil-client-ip downstream — a client cannot set this header itself', async () => {
+    const { gw: gw2, identityUpstream } = await buildWithIdentity(1000);
+    const res = await gw2.inject({
+      method: 'POST', url: '/auth/passkey/login/options', remoteAddress: TRUSTED_HOP,
+      headers: { 'x-forwarded-for': `203.0.113.77, ${TRUSTED_HOP}`, 'x-vigil-client-ip': 'spoofed-value' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().headers['x-vigil-client-ip']).toBe('203.0.113.77');
+    await gw2.close();
+    await identityUpstream.close();
+  });
+
+  it('with no trusted proxies configured, req.ip is always the raw socket address (safe default)', async () => {
+    const { gw: gw2, identityUpstream } = await buildWithIdentity(1000, []);
+    const res = await gw2.inject({
+      method: 'POST', url: '/auth/passkey/login/options', remoteAddress: TRUSTED_HOP,
+      headers: { 'x-forwarded-for': '203.0.113.1' },
+    });
+    expect(res.json().headers['x-vigil-client-ip']).toBe(TRUSTED_HOP); // XFF ignored entirely
+    await gw2.close();
+    await identityUpstream.close();
   });
 });
 

@@ -28,6 +28,17 @@ export interface GatewayOptions {
   /** Base URL for the counselor passkey login service — proxies /auth/passkey/*. */
   counselorIdentityUrl?: string;
   /**
+   * Exact address(es) of the known proxy hop(s) immediately in front of this
+   * gateway (e.g. the PWA's same-origin proxy, and in production the Caddy
+   * ingress in front of that) — NEVER a whole subnet or `true`. Anyone who
+   * can reach the gateway directly (the local docker-compose stack exposes
+   * it on a host port for scripts/smoke.mjs) is NOT one of these addresses,
+   * so their own forged X-Forwarded-For is ignored and their real socket
+   * address is used instead. Unset/empty means trust nothing — req.ip is
+   * always the raw socket peer. See docs/design/counselor-passkey-login.md §5.
+   */
+  trustedProxies?: string[];
+  /**
    * Gates `devIdpUrl`. Fails closed: dev-idp may only be proxied to when this
    * is exactly 'development' or 'test' — any other value, including unset,
    * refuses to boot rather than silently ignoring devIdpUrl. See
@@ -54,7 +65,7 @@ declare module 'fastify' {
 }
 
 const SCOPES: readonly Scope[] = ['victim', 'counselor', 'admin'];
-const STRIP = ['authorization', 'cookie', 'x-vigil-subject', 'x-vigil-scope', 'x-vigil-internal-token', 'host', 'connection'];
+const STRIP = ['authorization', 'cookie', 'x-vigil-subject', 'x-vigil-scope', 'x-vigil-internal-token', 'x-vigil-client-ip', 'host', 'connection'];
 
 export async function buildGateway(o: GatewayOptions): Promise<FastifyInstance> {
   // Fail closed: dev-idp may be proxied to only in an explicitly-whitelisted
@@ -71,12 +82,12 @@ export async function buildGateway(o: GatewayOptions): Promise<FastifyInstance> 
     name: 'gateway',
     https: o.https,
     trustIdentityHeaders: false,
-    // Trusts X-Forwarded-For to resolve the real client through Caddy + the
-    // PWA's same-origin proxy — safe because the gateway has no exposed port
-    // in production (infra/compose.prod.yml removes it entirely); the local
-    // docker-compose exposure is a dev-tooling convenience, not a public
-    // boundary. See docs/design/counselor-passkey-login.md §5.
-    trustProxy: true,
+    // Trusts X-Forwarded-For ONLY from these exact addresses — never `true`
+    // (which would trust every hop unconditionally, including a request
+    // that reaches the gateway directly rather than through the real proxy
+    // chain). See the trustedProxies doc comment above and
+    // docs/design/counselor-passkey-login.md §5.
+    trustProxy: o.trustedProxies && o.trustedProxies.length > 0 ? o.trustedProxies : false,
     logLevel: o.logLevel,
     onUnhandledError: o.onUnhandledError,
   });
@@ -151,6 +162,12 @@ export async function buildGateway(o: GatewayOptions): Promise<FastifyInstance> 
               'x-vigil-subject': who.subject,
               'x-vigil-scope': who.scope,
               'x-vigil-internal-token': o.internalToken,
+              // The gateway's own resolved client address — computed via
+              // trustProxy above, never a client-supplied header passed
+              // through — so a downstream service's audit log and rate
+              // limiting reflect the real caller, not a forged
+              // X-Forwarded-For. See point 1 of the item-4 review.
+              'x-vigil-client-ip': req.ip,
               'x-request-id': req.id,
             };
           },
@@ -172,13 +189,13 @@ export async function buildGateway(o: GatewayOptions): Promise<FastifyInstance> 
     // while logged in" case) is passed through unmodified so the identity
     // service can verify it itself; the client-spoofable identity headers
     // are still stripped so the identity service can trust their absence.
-    const PASSKEY_STRIP = ['cookie', 'x-vigil-subject', 'x-vigil-scope', 'x-vigil-internal-token', 'host', 'connection'];
+    const PASSKEY_STRIP = ['cookie', 'x-vigil-subject', 'x-vigil-scope', 'x-vigil-internal-token', 'x-vigil-client-ip', 'host', 'connection'];
     const proxyToIdentity = (req: FastifyRequest, reply: FastifyReply) =>
       reply.from(`${identity}${req.url}`, {
         rewriteRequestHeaders: (_orig, headers) => {
           const out: Record<string, string | string[] | undefined> = { ...headers };
           for (const h of PASSKEY_STRIP) delete out[h];
-          return { ...out, 'x-vigil-internal-token': o.internalToken, 'x-request-id': req.id };
+          return { ...out, 'x-vigil-internal-token': o.internalToken, 'x-vigil-client-ip': req.ip, 'x-request-id': req.id };
         },
       });
     for (const path of ['/auth/passkey/registration/options', '/auth/passkey/registration/verify', '/auth/passkey/login/options', '/auth/passkey/login/verify']) {

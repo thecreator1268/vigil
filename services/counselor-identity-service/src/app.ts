@@ -26,6 +26,19 @@ export interface AppDeps {
   onUnhandledError?: (err: Error) => void;
 }
 
+/**
+ * The gateway resolves the real client address (via its own, narrowly-
+ * scoped trustProxy) and forwards it as x-vigil-client-ip — never a header
+ * this service reads directly off the client, since this service's only
+ * caller is the gateway itself. Falling back to req.ip only matters for
+ * tests/direct local runs with no gateway in front. See
+ * docs/design/counselor-passkey-login.md §5 (review point 1).
+ */
+function clientIp(req: { headers: Record<string, unknown>; ip: string }): string {
+  const header = req.headers['x-vigil-client-ip'];
+  return typeof header === 'string' && header.length > 0 ? header : req.ip;
+}
+
 const CHALLENGE_TTL_MS = 2 * 60 * 1000;
 export const JWT_TTL = '15m';
 const LOGIN_PER_IP = new SlidingWindowThrottle(20, 60_000);
@@ -124,7 +137,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
 
   app.post('/auth/passkey/login/verify', async (req) => {
-    if (!LOGIN_PER_IP.allow(req.ip, now())) throw new HttpError(429, 'rate_limited', 'Too many attempts; please wait a moment and try again');
+    if (!LOGIN_PER_IP.allow(clientIp(req), now())) throw new HttpError(429, 'rate_limited', 'Too many attempts; please wait a moment and try again');
     const { attemptId, credential } = parse(LoginVerifyBody, req.body);
     const challenge = await repo.consumeChallenge(attemptId, now());
     // Every failure below collapses to the same generic 401 — usernameless
@@ -137,9 +150,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     if (typeof credentialId !== 'string') throw fail();
     if (!LOGIN_PER_CREDENTIAL.allow(credentialId, now())) throw new HttpError(429, 'rate_limited', 'Too many attempts; please wait a moment and try again');
 
+    const ip = clientIp(req);
     const stored = await repo.getCredential(credentialId);
     if (!stored) {
-      await repo.audit({ action: 'login_failed', actor: 'unknown', targetCounselorId: null, detail: { reason: 'unknown_credential' }, at: now() });
+      await repo.audit({ action: 'login_failed', actor: 'unknown', targetCounselorId: null, detail: { reason: 'unknown_credential', clientIp: ip }, at: now() });
       throw fail();
     }
 
@@ -156,21 +170,21 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         credential: { id: stored.id, publicKey: Uint8Array.from(stored.publicKey), counter: 0, transports: stored.transports as never[] },
       });
     } catch {
-      await repo.audit({ action: 'login_failed', actor: stored.counselorId, targetCounselorId: stored.counselorId, detail: { reason: 'verify_threw' }, at: now() });
+      await repo.audit({ action: 'login_failed', actor: stored.counselorId, targetCounselorId: stored.counselorId, detail: { reason: 'verify_threw', clientIp: ip }, at: now() });
       throw fail();
     }
     if (!verification.verified) {
-      await repo.audit({ action: 'login_failed', actor: stored.counselorId, targetCounselorId: stored.counselorId, detail: { reason: 'bad_signature' }, at: now() });
+      await repo.audit({ action: 'login_failed', actor: stored.counselorId, targetCounselorId: stored.counselorId, detail: { reason: 'bad_signature', clientIp: ip }, at: now() });
       throw fail();
     }
 
     const newCounter = verification.authenticationInfo.newCounter;
     if (counterDecreased(stored.counter, newCounter)) {
-      await repo.audit({ action: 'counter_decreased', actor: stored.counselorId, targetCounselorId: stored.counselorId, detail: { credentialId: stored.id, previous: stored.counter, incoming: newCounter }, at: now() });
+      await repo.audit({ action: 'counter_decreased', actor: stored.counselorId, targetCounselorId: stored.counselorId, detail: { credentialId: stored.id, previous: stored.counter, incoming: newCounter, clientIp: ip }, at: now() });
       req.log.warn({ counselorId: stored.counselorId, credentialId: stored.id }, 'passkey sign-count decreased — advisory only, login allowed');
     }
     await repo.updateCounter(stored.id, newCounter, now());
-    await repo.audit({ action: 'login_succeeded', actor: stored.counselorId, targetCounselorId: stored.counselorId, detail: { credentialId: stored.id }, at: now() });
+    await repo.audit({ action: 'login_succeeded', actor: stored.counselorId, targetCounselorId: stored.counselorId, detail: { credentialId: stored.id, clientIp: ip }, at: now() });
 
     const token = await new SignJWT({ scope: 'counselor' })
       .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
@@ -212,11 +226,26 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     return { operatorId: body.operatorId, token };
   });
 
+  /**
+   * Every call is written to the audit log — success ("use") and failure —
+   * regardless of which ops endpoint called it. verifyToken() compares the
+   * derived scrypt hash with node:crypto's timingSafeEqual, constant-time
+   * for equal-length buffers (the hash format pins the derived length to
+   * the stored hash's own length, so this is always an equal-length
+   * comparison). See docs/design/counselor-passkey-login.md §5 (review
+   * point 3).
+   */
   async function authenticateOperator(operatorId: string, token: string): Promise<void> {
     const op = await repo.getOperator(operatorId);
-    if (!op || op.disabledAt !== null || !(await verifyToken(token, op.tokenHash))) {
-      throw new HttpError(401, 'unauthorized', 'Invalid operator credentials');
-    }
+    const ok = !!op && op.disabledAt === null && (await verifyToken(token, op.tokenHash));
+    await repo.audit({
+      action: ok ? 'operator_token_used' : 'operator_token_auth_failed',
+      actor: operatorId,
+      targetCounselorId: null,
+      detail: ok ? {} : { reason: !op ? 'unknown_operator' : op.disabledAt !== null ? 'operator_disabled' : 'bad_token' },
+      at: now(),
+    });
+    if (!ok) throw new HttpError(401, 'unauthorized', 'Invalid operator credentials');
   }
 
   app.post('/internal/ops/recovery/request', async (req) => {
