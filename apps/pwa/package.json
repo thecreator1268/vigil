@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
+    "@simplewebauthn/browser": "14.0.0",
     "@vigil/design-system": "workspace:*",
     "@vigil/scoring-engine": "workspace:*",
     "@vigil/shared-types": "workspace:*",

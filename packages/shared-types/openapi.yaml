@@ -31,8 +31,206 @@ tags:
   - name: consent
   - name: cases
   - name: admin
+  - name: auth
 
 paths:
+  /auth/passkey/registration/options:
+    post:
+      tags: [auth]
+      operationId: passkeyRegistrationOptions
+      x-vigil-service: counselor-identity-service
+      x-vigil-scopes: []
+      security: []
+      summary: Begin registering a counselor passkey.
+      description: |
+        Pre-authentication endpoint — hand-wired at the gateway, not routed
+        through the generic scope-checked proxy (see `x-vigil-scopes: []`,
+        which is documentation only here).
+
+        Identity for this registration comes from exactly one of two
+        sources: an `enrollmentToken` in the body (first-time enrollment or
+        admin-assisted recovery — see docs/design/counselor-passkey-login.md
+        §4), or an `Authorization: Bearer` header from an already-logged-in
+        counselor adding a second passkey. Exactly one must resolve.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                enrollmentToken: { type: string, minLength: 16 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attemptId, options]
+                additionalProperties: false
+                properties:
+                  attemptId: { type: string }
+                  options:
+                    description: PublicKeyCredentialCreationOptionsJSON, shaped by @simplewebauthn/server — not modeled field-by-field here.
+                    type: object
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/passkey/registration/verify:
+    post:
+      tags: [auth]
+      operationId: passkeyRegistrationVerify
+      x-vigil-service: counselor-identity-service
+      x-vigil-scopes: []
+      security: []
+      summary: Complete registering a counselor passkey.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attemptId, credential]
+              additionalProperties: false
+              properties:
+                attemptId: { type: string }
+                credential:
+                  description: RegistrationResponseJSON from @simplewebauthn/browser's startRegistration().
+                  type: object
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credentialId]
+                additionalProperties: false
+                properties:
+                  credentialId: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/passkey/login/options:
+    post:
+      tags: [auth]
+      operationId: passkeyLoginOptions
+      x-vigil-service: counselor-identity-service
+      x-vigil-scopes: []
+      security: []
+      summary: Begin a usernameless (discoverable-credential) counselor login.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attemptId, options]
+                additionalProperties: false
+                properties:
+                  attemptId: { type: string }
+                  options:
+                    description: PublicKeyCredentialRequestOptionsJSON, shaped by @simplewebauthn/server — not modeled field-by-field here.
+                    type: object
+
+  /auth/passkey/login/verify:
+    post:
+      tags: [auth]
+      operationId: passkeyLoginVerify
+      x-vigil-service: counselor-identity-service
+      x-vigil-scopes: []
+      security: []
+      summary: Complete a counselor login; issues an RS256 JWT identical in shape to dev-idp's.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attemptId, credential]
+              additionalProperties: false
+              properties:
+                attemptId: { type: string }
+                credential:
+                  description: AuthenticationResponseJSON from @simplewebauthn/browser's startAuthentication().
+                  type: object
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, token_type, scope, sub, expires_in]
+                additionalProperties: false
+                properties:
+                  access_token: { type: string }
+                  token_type: { type: string, enum: [Bearer] }
+                  scope: { type: string, enum: [counselor] }
+                  sub: { type: string }
+                  expires_in: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/BadRequest' }
+
+  /v1/counselor/passkeys:
+    get:
+      tags: [auth]
+      operationId: listOwnPasskeys
+      x-vigil-service: counselor-identity-service
+      x-vigil-scopes: [counselor]
+      summary: List the signed-in counselor's own registered passkeys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [passkeys]
+                additionalProperties: false
+                properties:
+                  passkeys:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, createdAt, lastUsedAt]
+                      additionalProperties: false
+                      properties:
+                        id: { type: string }
+                        createdAt: { $ref: '#/components/schemas/Timestamp' }
+                        lastUsedAt: { $ref: '#/components/schemas/Timestamp', nullable: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/counselor/passkeys/{id}:
+    delete:
+      tags: [auth]
+      operationId: removeOwnPasskey
+      x-vigil-service: counselor-identity-service
+      x-vigil-scopes: [counselor]
+      summary: Remove one of the signed-in counselor's own passkeys. Refuses to remove the last one.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [removed]
+                additionalProperties: false
+                properties:
+                  removed: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /v1/checkins:
     post:
       tags: [checkins]

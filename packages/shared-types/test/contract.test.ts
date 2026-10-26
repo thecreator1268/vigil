@@ -75,12 +75,23 @@ describe('contract validator', () => {
 });
 
 describe('route table (gateway RBAC source)', () => {
-  it('lists every operation with a service and at least one scope', () => {
+  it('lists every operation with a service, and every /v1/ operation with at least one scope', () => {
     expect(contractRoutes.length).toBeGreaterThanOrEqual(11);
     for (const r of contractRoutes) {
       expect(r.service).toMatch(/-service$/);
-      expect(r.scopes.length).toBeGreaterThan(0);
+      // /auth/* is pre-authentication by design (login/registration — no
+      // bearer token exists yet) and is hand-wired at the gateway outside
+      // the generic scope-checked proxy loop; x-vigil-scopes: [] on those
+      // operations is documentation only. Every /v1/ operation still must
+      // declare a real scope. See docs/design/counselor-passkey-login.md.
+      if (r.path.startsWith('/v1/')) expect(r.scopes.length).toBeGreaterThan(0);
     }
+  });
+
+  it('every /auth/ operation is deliberately scope-less (pre-authentication, hand-wired) — not an oversight', () => {
+    const auth = contractRoutes.filter((r) => r.path.startsWith('/auth/'));
+    expect(auth.length).toBeGreaterThan(0);
+    for (const r of auth) expect(r.scopes).toEqual([]);
   });
 
   it('only ever grants /v1/admin/* to the admin scope', () => {

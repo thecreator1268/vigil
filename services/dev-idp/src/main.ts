@@ -7,6 +7,7 @@ async function main() {
     issuer: process.env.JWT_ISSUER ?? 'https://idp.vigil.local',
     audience: process.env.JWT_AUDIENCE ?? 'vigil-api',
     enabled: process.env.DEV_IDP_ENABLED === 'true',
+    nodeEnv: process.env.NODE_ENV,
   });
   app.log.warn('dev-idp running — development tokens only, never deploy to production');
   await start(app);

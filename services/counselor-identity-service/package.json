@@ -1,0 +1,36 @@
+{
+  "name": "@vigil/counselor-identity-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Counselor passkey (WebAuthn) registration, login, recovery and audit log. Production replacement for dev-idp's counselor role.",
+  "main": "dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch --onSuccess \"node dist/main.js\"",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "ops": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "14.0.3",
+    "@vigil/service-kit": "workspace:*",
+    "@vigil/shared-types": "workspace:*",
+    "fastify": "^5.12.5",
+    "jose": "^6.1.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@levischuck/tiny-cbor": "0.2.11",
+    "@simplewebauthn/browser": "14.0.0",
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.0.2",
+    "tsup": "^8.5.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

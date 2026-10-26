@@ -80,7 +80,9 @@ and adoption during this research pass; if this is a blocking concern, say so
 before I proceed — I have not done an exhaustive library bake-off.
 
 **Pinned exactly (change 8):** `"@simplewebauthn/server": "14.0.3"` and
-`"@simplewebauthn/browser": "14.0.3"` — no `^`/`~` range, so a transitive
+`"@simplewebauthn/browser": "14.0.0"` (the two packages are versioned
+independently despite shipping from the same project — confirmed directly
+against the registry, not assumed to match) — no `^`/`~` range, so a transitive
 minor/patch bump can't silently change verification behavior for a
 security-critical dependency. `pnpm-lock.yaml` is committed with the exact
 resolved tree.

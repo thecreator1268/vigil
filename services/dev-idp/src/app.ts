@@ -14,11 +14,19 @@ export interface IdpOptions {
   issuer: string;
   audience: string;
   enabled: boolean;
+  /**
+   * Fail closed: the server refuses to boot at all unless `enabled` is true
+   * AND this is exactly 'development' or 'test' — any other value,
+   * including unset, refuses to start. See
+   * docs/design/counselor-passkey-login.md §6.
+   */
+  nodeEnv?: string;
   logLevel?: string;
 }
 
 const DEFAULT_SUBJECT = { victim: 'v_demo_0001', counselor: 'c_demo_01', admin: 'a_demo_01' } as const;
 const TTL = { victim: '30d', counselor: '8h', admin: '8h' } as const;
+const DEV_ENVS = new Set(['development', 'test']);
 
 const Body = z.strictObject({
   role: z.enum(['victim', 'counselor', 'admin']),
@@ -26,11 +34,15 @@ const Body = z.strictObject({
 });
 
 export async function buildIdp(o: IdpOptions): Promise<FastifyInstance> {
+  if (!o.enabled || !DEV_ENVS.has(o.nodeEnv ?? '')) {
+    throw new Error(
+      `Refusing to start dev-idp: requires DEV_IDP_ENABLED=true AND NODE_ENV of 'development' or 'test' (got enabled=${o.enabled}, nodeEnv=${o.nodeEnv ?? '<unset>'}).`,
+    );
+  }
   const key = await importPKCS8(o.privateKeyPem, 'RS256');
   const app = buildServer({ name: 'dev-idp', trustIdentityHeaders: false, logLevel: o.logLevel });
 
   app.post('/auth/dev-token', async (req) => {
-    if (!o.enabled) throw new HttpError(404, 'not_found', 'No such route');
     const { role, subject } = parse(Body, req.body ?? {});
     const sub = subject ?? DEFAULT_SUBJECT[role];
     if (role === 'victim' && !/^v_[A-Za-z0-9_-]{6,64}$/.test(sub)) throw new HttpError(400, 'invalid_request', 'victim subjects look like v_xxxxxx');

@@ -23,4 +23,5 @@ images:
   - { name: vigil/alert-service, newTag: "1.0.0" }
   - { name: vigil/reminder-service, newTag: "1.0.0" }
   - { name: vigil/case-integration-service, newTag: "1.0.0" }
+  - { name: vigil/counselor-identity-service, newTag: "1.0.0" }
   - { name: vigil/pwa, newTag: "1.0.0" }

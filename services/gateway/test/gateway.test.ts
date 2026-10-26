@@ -35,12 +35,14 @@ beforeAll(async () => {
     audience: AUD,
     internalToken: 'internal-secret',
     upstreams: Object.fromEntries(
-      ['checkin-service', 'distress-trend-service', 'alert-service', 'reminder-service', 'case-integration-service'].map((s) => [s, base]),
+      ['checkin-service', 'distress-trend-service', 'alert-service', 'reminder-service', 'case-integration-service', 'counselor-identity-service'].map((s) => [s, base]),
     ),
     rateLimit: { max: 1000, timeWindow: '1 minute' },
     logLevel: 'silent',
   });
 });
+
+const ALL_UPSTREAMS = ['checkin-service', 'distress-trend-service', 'alert-service', 'reminder-service', 'case-integration-service', 'counselor-identity-service'];
 
 afterAll(async () => {
   await gw.close();
@@ -112,12 +114,93 @@ describe('rate limiting', () => {
     const limited = await buildGateway({
       jwtPublicKeyPem: await exportSPKI((await generateKeyPair('RS256')).publicKey),
       issuer: ISS, audience: AUD, internalToken: 'x',
-      upstreams: Object.fromEntries(['checkin-service', 'distress-trend-service', 'alert-service', 'reminder-service', 'case-integration-service'].map((s) => [s, 'http://127.0.0.1:1'])),
+      upstreams: Object.fromEntries(ALL_UPSTREAMS.map((s) => [s, 'http://127.0.0.1:1'])),
       rateLimit: { max: 2, timeWindow: '1 minute' }, logLevel: 'silent',
     });
     const codes = [];
     for (let i = 0; i < 3; i++) codes.push((await limited.inject({ url: '/v1/alerts' })).statusCode);
     expect(codes).toEqual([401, 401, 429]);
     await limited.close();
+  });
+});
+
+// A production-shaped base: X-Forwarded-For arrives already carrying the
+// real client (as Caddy would set it) followed by one more hop address (as
+// the PWA's own proxy appends, post-fix) — gw.inject's `remoteAddress`
+// simulates the socket address the gateway itself sees (the PWA container).
+describe('trustProxy resolves the real client through the proxy chain', () => {
+  const buildWithIdentity = async (rateLimitMax: number) => {
+    const kp = await generateKeyPair('RS256');
+    return buildGateway({
+      jwtPublicKeyPem: await exportSPKI(kp.publicKey),
+      issuer: ISS, audience: AUD, internalToken: 'x',
+      upstreams: Object.fromEntries(ALL_UPSTREAMS.map((s) => [s, 'http://127.0.0.1:1'])),
+      counselorIdentityUrl: 'http://127.0.0.1:1',
+      rateLimit: { max: rateLimitMax, timeWindow: '1 minute' },
+      logLevel: 'silent',
+    });
+  };
+
+  it('two different real clients behind the same immediate proxy hop get independent rate-limit budgets', async () => {
+    const gw2 = await buildWithIdentity(1);
+    const req = (clientIp: string) =>
+      gw2.inject({
+        method: 'POST',
+        url: '/auth/passkey/login/options',
+        remoteAddress: '172.18.0.5', // the PWA container's address, as the gateway sees it
+        headers: { 'x-forwarded-for': `${clientIp}, 172.18.0.5` },
+      });
+    // Each client's FIRST request should not be rate-limited by the other's.
+    expect((await req('203.0.113.10')).statusCode).not.toBe(429);
+    expect((await req('203.0.113.11')).statusCode).not.toBe(429);
+    // The SAME client's second request, within the same window, now is.
+    expect((await req('203.0.113.10')).statusCode).toBe(429);
+    await gw2.close();
+  });
+
+  it('without the fix, overwriting X-Forwarded-For would have bucketed every client together — this proves that regression cannot happen', async () => {
+    const gw2 = await buildWithIdentity(1);
+    // Same immediate peer, but each call's X-Forwarded-For already has a
+    // DIFFERENT leftmost (real-client) entry appended with a comma, exactly
+    // as apps/pwa/server/main.js now produces it.
+    const first = await gw2.inject({
+      method: 'POST', url: '/auth/passkey/login/options', remoteAddress: '172.18.0.5',
+      headers: { 'x-forwarded-for': '198.51.100.1, 172.18.0.5' },
+    });
+    const second = await gw2.inject({
+      method: 'POST', url: '/auth/passkey/login/options', remoteAddress: '172.18.0.5',
+      headers: { 'x-forwarded-for': '198.51.100.2, 172.18.0.5' },
+    });
+    expect(first.statusCode).not.toBe(429);
+    expect(second.statusCode).not.toBe(429);
+    await gw2.close();
+  });
+});
+
+describe('dev-idp boot check fails closed (not just on NODE_ENV=production specifically)', () => {
+  const base = {
+    jwtPublicKeyPem: '', issuer: ISS, audience: AUD, internalToken: 'x',
+    upstreams: Object.fromEntries(ALL_UPSTREAMS.map((s) => [s, 'http://127.0.0.1:1'])),
+  };
+
+  it('boots fine with devIdpUrl unset, regardless of NODE_ENV', async () => {
+    const kp = await generateKeyPair('RS256');
+    const app = await buildGateway({ ...base, jwtPublicKeyPem: await exportSPKI(kp.publicKey), nodeEnv: undefined, logLevel: 'silent' });
+    await app.close();
+  });
+
+  it.each(['development', 'test'])('boots with devIdpUrl set when NODE_ENV=%s', async (nodeEnv) => {
+    const kp = await generateKeyPair('RS256');
+    const app = await buildGateway({
+      ...base, jwtPublicKeyPem: await exportSPKI(kp.publicKey), devIdpUrl: 'http://dev-idp:3000', nodeEnv, logLevel: 'silent',
+    });
+    await app.close();
+  });
+
+  it.each(['production', 'staging', undefined, ''])('refuses to build with devIdpUrl set when NODE_ENV=%s', async (nodeEnv) => {
+    const kp = await generateKeyPair('RS256');
+    await expect(
+      buildGateway({ ...base, jwtPublicKeyPem: await exportSPKI(kp.publicKey), devIdpUrl: 'http://dev-idp:3000', nodeEnv, logLevel: 'silent' }),
+    ).rejects.toThrow(/Refusing to start/);
   });
 });

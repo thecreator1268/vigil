@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { readSecret, start } from '@vigil/service-kit';
 import { buildGateway } from './app.js';
 
-const SERVICES = ['checkin-service', 'distress-trend-service', 'alert-service', 'reminder-service', 'case-integration-service'];
+const SERVICES = ['checkin-service', 'distress-trend-service', 'alert-service', 'reminder-service', 'case-integration-service', 'counselor-identity-service'];
 
 async function main() {
   const upstreams = Object.fromEntries(
@@ -20,6 +20,10 @@ async function main() {
     internalToken: readSecret('internal_token') as string,
     upstreams,
     devIdpUrl: process.env.DEV_IDP_URL || undefined,
+    // Same upstream /auth/passkey/* is proxied to — hand-wired separately
+    // from the generic /v1/ loop since it's pre-authentication.
+    counselorIdentityUrl: upstreams['counselor-identity-service'],
+    nodeEnv: process.env.NODE_ENV,
     https: certPath && keyPath ? { cert: readFileSync(certPath, 'utf8'), key: readFileSync(keyPath, 'utf8') } : undefined,
     rateLimit: { max: Number(process.env.RATE_LIMIT_MAX ?? 120), timeWindow: process.env.RATE_LIMIT_WINDOW ?? '1 minute' },
     onUnhandledError: errorReporter.capture,

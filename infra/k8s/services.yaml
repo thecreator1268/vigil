@@ -168,6 +168,70 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: counselor-identity-service
+  labels: { app: counselor-identity-service, tier: service }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: counselor-identity-service } }
+  template:
+    metadata:
+      labels: { app: counselor-identity-service, tier: service }
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: counselor-identity-service
+          image: vigil/counselor-identity-service
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: OTEL_SERVICE_NAME, value: counselor-identity-service }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: vigil-db, key: identity } }
+            - name: JWT_ISSUER
+              valueFrom: { configMapKeyRef: { name: vigil-auth, key: jwtIssuer } }
+            - name: JWT_AUDIENCE
+              valueFrom: { configMapKeyRef: { name: vigil-auth, key: jwtAudience } }
+            # The RP ID/origin changing invalidates every enrolled passkey —
+            # see docs/design/counselor-passkey-login.md §2/§7.
+            - name: PASSKEY_RP_ID
+              valueFrom: { configMapKeyRef: { name: vigil-auth, key: passkeyRpId } }
+            - name: PASSKEY_ORIGIN
+              valueFrom: { configMapKeyRef: { name: vigil-auth, key: passkeyOrigin } }
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom: { configMapKeyRef: { name: vigil-observability, key: otlpEndpoint, optional: true } }
+            - name: SENTRY_DSN
+              valueFrom: { secretKeyRef: { name: vigil-observability, key: sentryDsn, optional: true } }
+          volumeMounts:
+            - { name: secrets, mountPath: /run/secrets, readOnly: true }
+          readinessProbe: { httpGet: { path: /readyz, port: 3000 }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: 3000 }, periodSeconds: 20 }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+      volumes:
+        - name: secrets
+          projected:
+            sources:
+              - secret: { name: vigil-internal, items: [{ key: token, path: internal_token }] }
+              - secret: { name: vigil-jwt, items: [{ key: public.pem, path: jwt_public_key }, { key: private.pem, path: jwt_private_key }] }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: counselor-identity-service, labels: { app: counselor-identity-service, tier: service } }
+spec:
+  selector: { app: counselor-identity-service }
+  ports: [{ port: 3000, targetPort: 3000 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: reminder-service
   labels: { app: reminder-service, tier: service }
 spec:

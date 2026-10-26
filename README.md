@@ -70,7 +70,9 @@ infra/                    docker-compose.yml, compose.prod.yml (+ Caddy), k8s/ (
 
 - IVRS and SMS channels exist in the data model and scoring (`channel`), but no telephony adapter is built.
 - BHASHINI transcription calls a configurable **server-side proxy** (`VITE_SPEECH_PROXY_URL`), which is not included. Without it, the app falls back to text entry, and voice features are still extracted on-device.
-- The production IdP (OIDC + PKCE) is not wired. `dev-idp` issues tokens with the same claims.
+- The production IdP (OIDC + PKCE) is not wired for **admin**. `dev-idp` issues admin tokens with the same claims it always has, gated behind an explicit `NODE_ENV` whitelist that refuses to boot outside development/test (see below) — admin passkey login was deliberately out of scope for this item, not forgotten.
+- **Counselor passkey login** (`services/counselor-identity-service`, `apps/pwa/src/api/passkey.ts`): production counselor sign-in is now WebAuthn passkeys — usernameless, user-verification required, discoverable credentials — replacing `dev-idp` for that one role. Design rationale, rejected alternatives, and the 8 changes required on review are in `docs/design/counselor-passkey-login.md`. Notable decisions: recovery is an **ops CLI** process requiring two distinct, token-authenticated operators (never a single admin, and deliberately not admin-console-based, since admin has no production identity of its own yet); a non-zero sign-count decrease is logged as a warning, not a hard rejection, so a noisy synced-passkey signal can't lock a counselor out mid-crisis; issued tokens live 15 minutes with no refresh — removing a credential bounds rather than instantly ends an already-issued token, which is a deliberate trade-off against adding a stateful revocation check to the otherwise-stateless gateway. **Both `dev-idp` and the gateway now refuse to boot** unless `NODE_ENV` is exactly `development` or `test` when dev tokens would be reachable — found, while adding this, that the existing local/CI docker-compose stack already ran both containers with `NODE_ENV=production` baked in from their Dockerfiles, which the new check would have broken; fixed with an explicit override in `infra/docker-compose.yml`. Also found and fixed a real bug while verifying the rate limiter stays available during a crisis: `apps/pwa/server/main.js`'s proxy was overwriting `X-Forwarded-For` instead of appending to it, which would have bucketed every counselor's login attempts behind one shared key.
+- **Not verified in this environment:** Docker Desktop's daemon is not reachable here, so the full `docker compose up` stack, the Playwright e2e suite (including the new `counselor-passkey.spec.ts`, which drives a real registration + usernameless login through Playwright's virtual WebAuthn authenticator), and `scripts/smoke.mjs` could not be run end-to-end this pass — only the full unit/contract test suite (every workspace project, including 25 tests in `counselor-identity-service` that exercise real ECDSA P-256 signing and the actual `@simplewebauthn/server` verification functions, not mocks of them) was run and is green. Real hardware authenticators, platform authenticators (Windows Hello, Touch ID, Android biometrics), and cross-device/hybrid passkey sign-in were not tested at all — only Playwright's virtual authenticator and hand-built cryptographic fixtures were.
 - The case-integration adapter is a clearly labelled mock.
 - The Trivy scan is configured in CI but has not been run locally.
 - Upstream bug found: openapi-fetch's `Readable<>` helper drops `null`-only properties such as `raw_score` from response types. The PWA parses alerts with the shared Zod schema instead, which also rejects any alert carrying a score.
@@ -79,12 +81,13 @@ infra/                    docker-compose.yml, compose.prod.yml (+ Caddy), k8s/ (
 
 Create the secrets from your secret store, then run `kubectl apply -k infra/k8s`. The secrets needed are:
 
-- `vigil-jwt` (`public.pem`)
+- `vigil-jwt` (`public.pem`, and now also `private.pem` — `counselor-identity-service` signs counselor tokens itself)
 - `vigil-internal` (`token`)
 - `vigil-field-key` (`key`)
 - `vigil-gateway-tls` (`tls.crt`, `tls.key`)
-- `vigil-db` (keys `checkin`, `trend`, `alerts`, `reminders`, `cases`)
+- `vigil-db` (keys `checkin`, `trend`, `alerts`, `reminders`, `cases`, `identity`)
 - `vigil-public-tls`
+- `vigil-auth` **ConfigMap** (not a Secret — these aren't sensitive): `jwtIssuer`, `jwtAudience`, `passkeyRpId`, `passkeyOrigin`. `passkeyRpId` must be the exact domain counselors reach the PWA on — changing it invalidates every registered passkey (see `docs/design/counselor-passkey-login.md` §2/§7).
 
 Single-host alternative:
 

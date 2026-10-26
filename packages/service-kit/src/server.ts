@@ -58,6 +58,14 @@ export interface BuildServerOptions {
    * derives identity from the JWT and overwrites those headers.
    */
   trustIdentityHeaders?: boolean;
+  /**
+   * Fastify's `trustProxy` — governs how `req.ip` is resolved from
+   * X-Forwarded-For. Only the gateway needs this (for IP-keyed rate
+   * limiting on pre-auth endpoints); every other service sits behind the
+   * gateway's internal-token check instead. Default false (trust nothing,
+   * use the raw socket address) — safe default for services that don't ask.
+   */
+  trustProxy?: boolean;
 }
 
 function tokenMatches(expected: string, given: string | undefined): boolean {
@@ -72,6 +80,7 @@ const SCOPES = new Set<Scope>(['victim', 'counselor', 'admin']);
 export function buildServer(opts: BuildServerOptions): FastifyInstance {
   const app = Fastify({
     ...(opts.https ? { https: { ...opts.https, minVersion: 'TLSv1.3' as const } } : {}),
+    trustProxy: opts.trustProxy ?? false,
     logger: {
       level: opts.logLevel ?? process.env.LOG_LEVEL ?? 'info',
       base: { service: opts.name },

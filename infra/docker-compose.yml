@@ -39,9 +39,16 @@ services:
       alert-service: { condition: service_healthy }
       reminder-service: { condition: service_healthy }
       case-integration-service: { condition: service_healthy }
+      counselor-identity-service: { condition: service_healthy }
       dev-idp: { condition: service_healthy }
     environment:
       PORT: "8080"
+      # Images bake NODE_ENV=production by default (see every Dockerfile);
+      # this stack is the dev/CI one, and DEV_IDP_URL below is only safe to
+      # proxy to under the gateway's fail-closed boot check when NODE_ENV is
+      # explicitly 'development' or 'test'. See
+      # docs/design/counselor-passkey-login.md §6.
+      NODE_ENV: development
       OTEL_SERVICE_NAME: gateway
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
@@ -106,6 +113,25 @@ services:
       CASE_SYNC_MOCK: "true"
       CASE_SYNC_VICTIM_IDS: v_demo_0001,v_demo_0002,v_demo_0003
 
+  # Production counselor identity: passkey (WebAuthn) registration, login,
+  # recovery, audit log. Mints the same-shaped RS256 JWT dev-idp mints below.
+  counselor-identity-service:
+    <<: *service
+    build: { context: .., dockerfile: services/counselor-identity-service/Dockerfile }
+    image: vigil/counselor-identity-service:dev
+    secrets: [internal_token, jwt_private_key, jwt_public_key]
+    environment:
+      <<: *service-env
+      OTEL_SERVICE_NAME: counselor-identity-service
+      DATABASE_URL: postgres://vigil:vigil@postgres:5432/identity
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+      JWT_ISSUER: ${JWT_ISSUER:-https://idp.vigil.local}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-vigil-api}
+      # RP ID / origin for local docker: see docs/design/counselor-passkey-login.md §2.
+      PASSKEY_RP_ID: localhost
+      PASSKEY_ORIGIN: http://localhost:5173
+
   # DEVELOPMENT-ONLY stand-in for the OIDC provider. Disabled in compose.prod.yml
   # and absent from infra/k8s.
   dev-idp:
@@ -115,6 +141,8 @@ services:
     networks: [internal]
     environment:
       DEV_IDP_ENABLED: "true"
+      # See the gateway's NODE_ENV comment above — same fail-closed boot check.
+      NODE_ENV: development
       JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
     secrets: [jwt_private_key]
 

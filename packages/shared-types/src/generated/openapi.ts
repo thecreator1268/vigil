@@ -1,6 +1,119 @@
 // AUTO-GENERATED from openapi.yaml by scripts/generate.mjs — do not edit.
 /* eslint-disable */
 export type paths = {
+    "/auth/passkey/registration/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin registering a counselor passkey.
+         * @description Pre-authentication endpoint — hand-wired at the gateway, not routed
+         *     through the generic scope-checked proxy (see `x-vigil-scopes: []`,
+         *     which is documentation only here).
+         *
+         *     Identity for this registration comes from exactly one of two
+         *     sources: an `enrollmentToken` in the body (first-time enrollment or
+         *     admin-assisted recovery — see docs/design/counselor-passkey-login.md
+         *     §4), or an `Authorization: Bearer` header from an already-logged-in
+         *     counselor adding a second passkey. Exactly one must resolve.
+         */
+        post: operations["passkeyRegistrationOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/passkey/registration/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete registering a counselor passkey. */
+        post: operations["passkeyRegistrationVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/passkey/login/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Begin a usernameless (discoverable-credential) counselor login. */
+        post: operations["passkeyLoginOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/passkey/login/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete a counselor login; issues an RS256 JWT identical in shape to dev-idp's. */
+        post: operations["passkeyLoginVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/counselor/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the signed-in counselor's own registered passkeys. */
+        get: operations["listOwnPasskeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/counselor/passkeys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove one of the signed-in counselor's own passkeys. Refuses to remove the last one. */
+        delete: operations["removeOwnPasskey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/checkins": {
         parameters: {
             query?: never;
@@ -445,6 +558,187 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
+    passkeyRegistrationOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    enrollmentToken?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        attemptId: string;
+                        /** @description PublicKeyCredentialCreationOptionsJSON, shaped by @simplewebauthn/server — not modeled field-by-field here. */
+                        options: Record<string, never>;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    passkeyRegistrationVerify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    attemptId: string;
+                    /** @description RegistrationResponseJSON from @simplewebauthn/browser's startRegistration(). */
+                    credential: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        credentialId: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    passkeyLoginOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        attemptId: string;
+                        /** @description PublicKeyCredentialRequestOptionsJSON, shaped by @simplewebauthn/server — not modeled field-by-field here. */
+                        options: Record<string, never>;
+                    };
+                };
+            };
+        };
+    };
+    passkeyLoginVerify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    attemptId: string;
+                    /** @description AuthenticationResponseJSON from @simplewebauthn/browser's startAuthentication(). */
+                    credential: Record<string, never>;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access_token: string;
+                        /** @enum {string} */
+                        token_type: "Bearer";
+                        /** @enum {string} */
+                        scope: "counselor";
+                        sub: string;
+                        expires_in: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["BadRequest"];
+        };
+    };
+    listOwnPasskeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        passkeys: {
+                            id: string;
+                            createdAt: components["schemas"]["Timestamp"];
+                            lastUsedAt: components["schemas"]["Timestamp"];
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    removeOwnPasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        removed: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     submitCheckIn: {
         parameters: {
             query?: never;

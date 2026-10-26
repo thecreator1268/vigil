@@ -26,6 +26,7 @@ services:
       alert-service: { condition: service_healthy }
       reminder-service: { condition: service_healthy }
       case-integration-service: { condition: service_healthy }
+      counselor-identity-service: { condition: service_healthy }
     environment:
       DEV_IDP_URL: ""
       JWT_ISSUER: ${JWT_ISSUER:?set JWT_ISSUER to your OIDC issuer}
@@ -54,6 +55,17 @@ services:
     environment:
       CASE_SYNC_MOCK: "false"
     deploy: { replicas: 1, resources: { limits: { cpus: "0.5", memory: 192M } } }
+
+  counselor-identity-service:
+    <<: *hardened
+    environment:
+      JWT_ISSUER: ${JWT_ISSUER:?set JWT_ISSUER to your OIDC issuer}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-vigil-api}
+      # Changing either of these after counselors have enrolled invalidates
+      # every passkey — see docs/design/counselor-passkey-login.md §2/§7.
+      PASSKEY_RP_ID: ${VIGIL_DOMAIN:?set VIGIL_DOMAIN}
+      PASSKEY_ORIGIN: https://${VIGIL_DOMAIN:?set VIGIL_DOMAIN}
+    deploy: { replicas: 2, resources: { limits: { cpus: "0.5", memory: 256M } } }
 
   pwa:
     <<: *hardened
