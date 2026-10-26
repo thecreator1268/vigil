@@ -16,6 +16,39 @@ test('the crisis bar is visible on every screen, including onboarding', async ({
   await expect(page.getByRole('heading', { name: 'Vandrevala Foundation Helpline' })).toBeVisible();
 });
 
+test('check-in disclosure: shown and requires Start on a first visit, skipped on a repeat visit', async ({ page }) => {
+  await skipOnboarding(page);
+
+  // First visit this device: the disclosure shows, Question 1 does not yet,
+  // and nothing advances until Start is clicked. This is the exact state
+  // transition that regressed in commit 9f15620 — see helpers.ts for the
+  // full history.
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Check in' }).click();
+  await expect(page.getByRole('heading', { name: 'Before you start' })).toBeVisible();
+  await expect(page.getByText('Question 1 of 4')).not.toBeVisible();
+  await page.getByRole('button', { name: 'Start' }).click();
+  await expect(page.getByText('Question 1 of 4')).toBeVisible();
+
+  // Abandon this check-in (don't save) by navigating home, so the only
+  // lasting effect of this first visit is the persisted "seen" flag itself
+  // — not a saved check-in.
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Home' }).click();
+
+  // Repeat visit, same device (no reload needed — the flag is in the
+  // Zustand store already, not just IndexedDB): disclosure is skipped
+  // entirely, straight to Question 1.
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Check in' }).click();
+  await expect(page.getByText('Question 1 of 4')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Before you start' })).not.toBeVisible();
+
+  // And it's still skipped after a full reload, proving the flag survived
+  // the persisted-store rehydration path, not just in-memory React state.
+  await page.reload();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Check in' }).click();
+  await expect(page.getByText('Question 1 of 4')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Before you start' })).not.toBeVisible();
+});
+
 test('onboarding plays once, then a check-in is saved on the device and syncs', async ({ page }) => {
   await skipOnboarding(page);
   await page.reload();
