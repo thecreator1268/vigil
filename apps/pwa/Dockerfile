@@ -3,7 +3,8 @@
 # Same deps → build → distroless pattern as every service.
 
 # ---- deps ----
-FROM node:22-alpine AS deps
+# Pinned by digest (Dependabot keeps this current — see .github/dependabot.yml).
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS deps
 WORKDIR /app
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -21,7 +22,8 @@ RUN pnpm install --offline --frozen-lockfile --store-dir /pnpm/store --filter "@
 
 # ---- runtime (distroless, non-root) ----
 # The static server has zero npm dependencies: only dist/ and server/ ship.
-FROM gcr.io/distroless/nodejs22-debian13 AS runtime
+# Pinned by digest (Dependabot keeps this current — see .github/dependabot.yml).
+FROM gcr.io/distroless/nodejs22-debian13@sha256:f643bc05bdcf5a8d98442e8a2a5c7a3a4c3a0e3bc4cdc5f10557d47f1ddd5812 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=5173
 COPY --from=build /app/apps/pwa/package.json ./package.json

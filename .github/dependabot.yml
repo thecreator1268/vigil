@@ -1,0 +1,43 @@
+version: 2
+updates:
+  # Docker base images are now pinned by digest (see each Dockerfile) —
+  # Dependabot resolves the current digest for the same tag on a schedule
+  # and opens a PR updating the pin, so the pin stays a deliberate, reviewed
+  # bump instead of silently drifting (the un-pinned state this replaces)
+  # or silently going stale (a pin nobody ever revisits).
+  - package-ecosystem: docker
+    directory: /apps/pwa
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /design-system
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/alert-service
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/case-integration-service
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/checkin-service
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/dev-idp
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/distress-trend-service
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/gateway
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/reminder-service
+    schedule:
+      interval: weekly
