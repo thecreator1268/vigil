@@ -27,6 +27,17 @@ spec:
             - { name: TLS_CERT_PATH, value: /run/secrets/tls_cert }
             - { name: TLS_KEY_PATH, value: /run/secrets/tls_key }
             - { name: RATE_LIMIT_MAX, value: "120" }
+            # Pod IPs are dynamic in Kubernetes, so (unlike compose, which
+            # pins exact static IPs) this must be a CIDR covering your CNI's
+            # pod network, e.g. Calico/Flannel's default 10.244.0.0/16 —
+            # replace with your actual pod CIDR. This is broader than "only
+            # pwa", but network-policies.yaml's edge-from-ingress +
+            # pwa-to-gateway policies already restrict who can open a TCP
+            # connection to this pod to pwa alone; NetworkPolicy is the real
+            # enforcement boundary here, this just mirrors it so the
+            # X-Forwarded-For hop it allows through is the one NetworkPolicy
+            # already permits. See docs/design/counselor-passkey-login.md §5.
+            - { name: TRUSTED_PROXY_ADDRESSES, value: "10.244.0.0/16" }
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               valueFrom: { configMapKeyRef: { name: vigil-observability, key: otlpEndpoint, optional: true } }
             - name: SENTRY_DSN

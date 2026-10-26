@@ -81,6 +81,35 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Dates ar
   exists yet for a login/registration ceremony — covered by a new
   contract test asserting this is deliberate, not an oversight.
 
+### Added (third review round)
+- `scripts/check-no-dev-idp-in-prod.mjs` now also fails the build if the
+  gateway port is ever published in production: `infra/compose.prod.yml`'s
+  `gateway` service must reset `ports` to empty, no Kubernetes `Service`
+  selecting the gateway may be typed `NodePort`/`LoadBalancer`, and no
+  `Ingress` resource may backend directly to the `gateway` service (only
+  `pwa` may). Verified against three deliberately-injected violations.
+- `services/gateway/src/app.ts`: `missingTrustedProxyWarning()`, a pure
+  function wired into `buildGateway()`, logs a startup warning (not a hard
+  boot refusal) whenever `NODE_ENV=production` has no trusted proxy
+  configured — a silent correctness gap (shared-address rate limiting and
+  audit logging), not a spoofing hole, so it degrades loudly instead of
+  failing closed.
+
+### Fixed (third review round)
+- `TRUSTED_PROXY_ADDRESSES` was never wired up in `infra/k8s/gateway.yaml`
+  at all, so in Kubernetes `trustProxy` silently resolved to `false` and
+  every audit/rate-limit entry would key on whatever shared address sits in
+  front of the gateway pod, not the real client. Compose's exact-IP pinning
+  doesn't transfer to k8s because pod IPs are reassigned on every
+  reschedule. Fixed with a CIDR covering the cluster's pod network, made
+  safe to trust by also narrowing `infra/k8s/network-policies.yaml`'s
+  `edge-from-ingress` NetworkPolicy from `{pwa, gateway}` to `pwa` only —
+  it previously let the ingress controller reach the gateway pod directly
+  even though no `Ingress` rule used that path, a k8s-manifest equivalent
+  of the second review round's "gateway reachable without going through
+  Caddy" gap. NetworkPolicy is now the actual enforcement boundary; the
+  trusted-proxy CIDR just mirrors what it already permits (pwa alone).
+
 ### Fixed
 - `apps/pwa/server/main.js`'s same-origin proxy **overwrote**
   `X-Forwarded-For` with its own immediate peer's address instead of

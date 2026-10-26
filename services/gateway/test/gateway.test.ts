@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { exportSPKI, generateKeyPair, SignJWT, type CryptoKey } from 'jose';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildGateway } from '../src/app.js';
+import { buildGateway, missingTrustedProxyWarning } from '../src/app.js';
 
 const ISS = 'https://idp.test';
 const AUD = 'vigil-api';
@@ -238,5 +238,33 @@ describe('dev-idp boot check fails closed (not just on NODE_ENV=production speci
     await expect(
       buildGateway({ ...base, jwtPublicKeyPem: await exportSPKI(kp.publicKey), devIdpUrl: 'http://dev-idp:3000', nodeEnv, logLevel: 'silent' }),
     ).rejects.toThrow(/Refusing to start/);
+  });
+});
+
+describe('startup warning when production has no trusted proxy configured (review point 2)', () => {
+  it('warns when nodeEnv is exactly "production" and trustedProxies is unset', () => {
+    expect(missingTrustedProxyWarning({ nodeEnv: 'production', trustedProxies: undefined })).toMatch(/TRUSTED_PROXY_ADDRESSES is unset/);
+  });
+
+  it('warns when nodeEnv is "production" and trustedProxies is an empty array', () => {
+    expect(missingTrustedProxyWarning({ nodeEnv: 'production', trustedProxies: [] })).toMatch(/TRUSTED_PROXY_ADDRESSES is unset/);
+  });
+
+  it('does not warn when a trusted proxy IS configured in production', () => {
+    expect(missingTrustedProxyWarning({ nodeEnv: 'production', trustedProxies: ['10.244.0.0/16'] })).toBeNull();
+  });
+
+  it.each(['development', 'test', 'staging', undefined, ''])('does not warn for non-"production" nodeEnv=%s, even with no trusted proxy', (nodeEnv) => {
+    expect(missingTrustedProxyWarning({ nodeEnv, trustedProxies: undefined })).toBeNull();
+  });
+
+  it('a production-shaped build with no trusted proxy still boots (warns, does not refuse to start)', async () => {
+    const kp = await generateKeyPair('RS256');
+    const app = await buildGateway({
+      jwtPublicKeyPem: await exportSPKI(kp.publicKey), issuer: ISS, audience: AUD, internalToken: 'x',
+      upstreams: Object.fromEntries(ALL_UPSTREAMS.map((s) => [s, 'http://127.0.0.1:1'])),
+      nodeEnv: 'production', trustedProxies: undefined, logLevel: 'silent',
+    });
+    await app.close();
   });
 });

@@ -27,8 +27,15 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: { name: edge-from-ingress }
 spec:
-  podSelector:
-    matchExpressions: [{ key: app, operator: In, values: [pwa, gateway] }]
+  # pwa ONLY. The Ingress (ingress.yaml) backends exclusively to pwa, and
+  # the gateway must only ever be reached through it (same reasoning as
+  # pinning TRUSTED_PROXY_ADDRESSES on the gateway in compose — see
+  # gateway.yaml). Previously this also selected `app: gateway`, which let
+  # ingress-nginx reach the gateway pod directly, bypassing pwa even though
+  # no Ingress rule used that path — a live gap matching review point 1
+  # from docs/design/counselor-passkey-login.md, just in the k8s manifests
+  # instead of docker-compose. Do not add `gateway` back here.
+  podSelector: { matchLabels: { app: pwa } }
   policyTypes: [Ingress]
   ingress:
     - from:

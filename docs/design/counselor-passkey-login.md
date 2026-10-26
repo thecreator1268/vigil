@@ -1,6 +1,6 @@
 # Design note: counselor passkey (WebAuthn) login
 
-**Status: second review round — not yet merge-ready, 5 items required
+**Status: third review round — not yet merge-ready, 4 items required
 before merge (below).** Scope is strictly counselor identity — replacing
 `services/dev-idp` in production for the `counselor` role only. RS256 JWTs,
 the RBAC model, and what any role can see are all unchanged; admin *login*
@@ -37,6 +37,55 @@ handled without it.
 3. **Operator-token comparison and audit coverage — confirmed.** `verifyToken()` (`src/tokens.ts`) uses `node:crypto`'s `timingSafeEqual` on equal-length derived scrypt hashes — constant-time. Operator-token creation, use (every `/internal/ops/*` call that authenticates one), and failure are now all written to `audit_log`.
 4. **What could not be run** — see the PR summary's dedicated section; exact commands and pass criteria included.
 5. **Independent review requested** — see the PR summary's security-decision checklist; this note does not claim to have reviewed itself.
+
+## Third review round (not yet merge-ready)
+
+1. **CI assertion that the gateway port is never published in production.**
+   Extended `scripts/check-no-dev-idp-in-prod.mjs`: fails if
+   `infra/compose.prod.yml`'s `gateway` service doesn't reset `ports` to
+   empty, if any Kubernetes `Service` selecting the gateway is typed
+   `NodePort`/`LoadBalancer`, or if any `Ingress` resource backends directly
+   to the `gateway` service instead of `pwa`. Verified against three
+   deliberately-injected violations (one per check) and a clean pass.
+2. **`TRUSTED_PROXY_ADDRESSES` in Kubernetes, where pod IPs are dynamic.**
+   This genuinely was not handled: `infra/k8s/gateway.yaml` never set the
+   variable at all, so in k8s `trustProxy` silently resolved to `false` —
+   every request's `req.ip` would be the raw socket peer, which behind
+   kube-proxy/the CNI is some shared address, not the real client; the
+   per-client rate limiter and the audit log would both be keyed on that
+   shared address instead. Pinning exact IPs (the compose fix) doesn't
+   transfer to k8s because pod IPs are reassigned on every reschedule.
+   Fixed two ways: (a) `infra/k8s/network-policies.yaml`'s
+   `edge-from-ingress` policy previously also selected `app: gateway`,
+   letting the ingress controller reach the gateway pod directly even
+   though no `Ingress` rule used that path — the k8s-manifest equivalent of
+   review-round-2's "gateway reachable without going through Caddy" gap.
+   Narrowed to `app: pwa` only, so NetworkPolicy itself is now the real
+   enforcement boundary: only `pwa` can open a TCP connection to the
+   gateway pod at all. (b) `TRUSTED_PROXY_ADDRESSES` is now set to a CIDR
+   covering the cluster's pod network (`infra/k8s/gateway.yaml`, with a
+   comment to replace the placeholder with the operator's actual CNI pod
+   CIDR) — broader than "only pwa" in isolation, but since (a) already
+   restricts who can reach the socket to pwa alone, trusting the pod CIDR
+   for X-Forwarded-For resolution only ever actually trusts pwa in
+   practice. Also added `missingTrustedProxyWarning()`
+   (`services/gateway/src/app.ts`), a pure, directly-unit-tested function
+   that produces a startup warning (not a hard refusal — unlike the dev-idp
+   boot check, a missing trusted proxy degrades rate-limiting/audit
+   accuracy rather than opening a spoofing hole, so it doesn't fail closed)
+   whenever `NODE_ENV=production` and no trusted proxy is configured at
+   all; wired into `buildGateway()` and covered by
+   `services/gateway/test/gateway.test.ts`.
+3. **Failed operator-token audit entries never contain the attempted
+   token — confirmed, with a new test.** `authenticateOperator()`'s audit
+   detail on failure is always exactly `{ reason: ... }`, never the token
+   itself; `packages/service-kit`'s logger also redacts the entire request
+   `body` (`REDACT_PATHS` includes `'body'`/`'*.body'`), so the raw
+   `operatorToken` field can't reach logs that way either. New test in
+   `services/counselor-identity-service/test/ops.test.ts` asserts the
+   attempted token string doesn't appear anywhere in a failed audit entry.
+4. **Session lifetime / revocation window — options only, not
+   implemented.** See the PR summary; this round does not pick one.
 
 ## Changes required on review, and how each was resolved
 

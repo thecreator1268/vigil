@@ -53,6 +53,31 @@ export interface GatewayOptions {
 
 const DEV_ENVS = new Set(['development', 'test']);
 
+/**
+ * Pure (no logging/IO) so it's trivially unit-testable: returns the warning
+ * text when a production boot has no trusted-proxy hop configured at all —
+ * meaning trustProxy is `false` and req.ip is always the raw socket peer,
+ * which in k8s is typically a NAT/CNI address shared by many real clients
+ * (collapsing their rate-limit buckets together), not a spoofing risk by
+ * itself but a silent correctness gap worth surfacing loudly. Returns null
+ * when nodeEnv isn't exactly 'production' (dev/test/CI intentionally run
+ * with no trusted proxy) or when at least one is configured.
+ */
+export function missingTrustedProxyWarning(o: Pick<GatewayOptions, 'nodeEnv' | 'trustedProxies'>): string | null {
+  if (o.nodeEnv !== 'production') return null;
+  if (o.trustedProxies && o.trustedProxies.length > 0) return null;
+  return (
+    'NODE_ENV=production but TRUSTED_PROXY_ADDRESSES is unset/empty — ' +
+    'trustProxy is disabled, so req.ip is always the raw socket peer. ' +
+    'Every request will appear to come from whatever sits directly in ' +
+    'front of this gateway (one address shared by all real clients), so ' +
+    'the per-client rate limiter and every downstream audit log will be ' +
+    'keyed on that shared address instead of the real client. Set ' +
+    'TRUSTED_PROXY_ADDRESSES to the known proxy hop(s) in front of this ' +
+    'gateway. See docs/design/counselor-passkey-login.md §5.'
+  );
+}
+
 interface Verified {
   subject: string;
   scope: Scope;
@@ -91,6 +116,9 @@ export async function buildGateway(o: GatewayOptions): Promise<FastifyInstance> 
     logLevel: o.logLevel,
     onUnhandledError: o.onUnhandledError,
   });
+
+  const trustedProxyWarning = missingTrustedProxyWarning(o);
+  if (trustedProxyWarning) app.log.warn(trustedProxyWarning);
 
   await app.register(replyFrom, { http: { requestOptions: { timeout: 10_000 } } });
   await app.register(rateLimit, {

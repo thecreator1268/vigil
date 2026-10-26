@@ -131,6 +131,20 @@ describe('operator token: creation, use and failure are all audited (review poin
     expect(entry).toMatchObject({ actor: 'no-such-operator', detail: { reason: 'unknown_operator' } });
   });
 
+  it('a failed operator-token audit entry never contains the attempted token (review point 3 follow-up)', async () => {
+    const { app, repo } = await buildTestApp();
+    await repo.createCounselor('c_1', 'c_1', Date.now());
+    await app.inject({ method: 'POST', url: '/internal/ops/operators', headers: hdr, payload: { operatorId: 'op-A', displayName: 'Alex' } });
+    const attemptedToken = 'super-secret-guessed-token-value';
+    await app.inject({ method: 'POST', url: '/internal/ops/recovery/request', headers: hdr, payload: { counselorId: 'c_1', operatorId: 'op-A', operatorToken: attemptedToken } });
+    const audit = (repo as ReturnType<typeof memoryRepo>)._audit;
+    const entry = audit.find((e) => e.action === 'operator_token_auth_failed');
+    expect(entry).toBeDefined();
+    // The failure detail is `{ reason: 'bad_token' }` only — assert the
+    // attempted token doesn't leak anywhere in the entry, under any key.
+    expect(JSON.stringify(entry)).not.toContain(attemptedToken);
+  });
+
   it('operator-token comparison is constant-time: verifyToken uses timingSafeEqual on equal-length buffers, not a short-circuiting string/byte comparison', async () => {
     const { hashToken, verifyToken } = await import('../src/tokens.js');
     const hash = await hashToken('the-real-token');

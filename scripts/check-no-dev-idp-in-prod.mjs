@@ -69,6 +69,35 @@ for await (const file of glob('infra/**/*.{yml,yaml}', { cwd: ROOT })) {
   if (/DEV_IDP_ENABLED:\s*["']?true["']?/i.test(text)) fail(file, 'DEV_IDP_ENABLED is set to true in a production-labelled file.');
 }
 
+// 4. The gateway must never be directly reachable in production — only
+//    Caddy (compose) or the Ingress -> pwa (k8s) are allowed public entry
+//    points. See docs/design/counselor-passkey-login.md §5 (review round 3,
+//    item 1): a direct path to the gateway is exactly what lets a forged
+//    X-Forwarded-For bypass the trusted-proxy check.
+const prodComposeGatewayBlock = prodCompose.match(/^ {2}gateway:\n([\s\S]*?)(?=\n {2}\S|\nvolumes:|(?![\s\S]))/m);
+if (!prodComposeGatewayBlock || !/ports:\s*!reset\s*\[\s*\]/.test(prodComposeGatewayBlock[1])) {
+  fail('infra/compose.prod.yml', 'gateway service does not reset ports to empty (`ports: !reset []`) — it would inherit the host port published in the base compose file.');
+}
+
+for await (const file of glob('infra/k8s/**/*.yaml', { cwd: ROOT })) {
+  const text = stripYamlComments(read(file));
+  // Any Service selecting the gateway must stay ClusterIP (the implicit
+  // default — i.e. no `type:` override to NodePort/LoadBalancer at all).
+  for (const svcBlock of text.matchAll(/kind:\s*Service[\s\S]*?(?=\n---|\n*$)/g)) {
+    const block = svcBlock[0];
+    if (/name:\s*gateway\b/.test(block) && /type:\s*(NodePort|LoadBalancer)/i.test(block)) {
+      fail(file, 'A Service selecting the gateway is typed NodePort/LoadBalancer, which would expose it directly instead of routing through the Ingress -> pwa path.');
+    }
+  }
+  // No Ingress resource may backend directly to the gateway service — only
+  // pwa is allowed to be a public Ingress backend.
+  for (const ingressBlock of text.matchAll(/kind:\s*Ingress[\s\S]*?(?=\n---|\n*$)/g)) {
+    if (/service:\s*\{\s*name:\s*gateway\b|name:\s*gateway\s*$/m.test(ingressBlock[0])) {
+      fail(file, 'An Ingress resource backends directly to the gateway service. Only pwa may be a public Ingress backend.');
+    }
+  }
+}
+
 if (failures > 0) {
   console.error(`\n${failures} problem(s) found — the dev identity provider must never be reachable in production.`);
   process.exit(1);
